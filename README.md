@@ -1,4 +1,4 @@
-# Apteka Pod Wagą 💊
+# Apteka Główna 💊
 
 Aplikacja do nauki testów automatycznych w **Playwright + pytest**.
 Panel apteki: dashboard sprzedaży z wykresami, magazyn leków (CRUD), kasa

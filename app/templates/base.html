@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Apteka{% endblock %} · Apteka Pod Wagą</title>
+  <title>{% block title %}Apteka{% endblock %} · Apteka Główna</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2315803d'/><path d='M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z' fill='white'/></svg>">
 </head>
@@ -13,7 +13,7 @@
   <aside class="sidebar">
     <a class="brand" href="{{ url_for('dashboard.index') }}">
       <span class="brand-mark" aria-hidden="true">+</span>
-      <span>Apteka<br><small>Pod Wagą</small></span>
+      <span>Apteka<br><small>Główna</small></span>
     </a>
     <nav aria-label="Menu główne" data-testid="main-nav">
       {% set ep = request.endpoint or '' %}
