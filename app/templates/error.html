@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Błąd {{ code }}{% endblock %}
+{% block content %}
+<div class="empty-state" data-testid="error-page">
+  <div class="error-code">{{ code }}</div>
+  <h1>{{ message }}</h1>
+  <a class="btn btn-primary" href="{{ url_for('dashboard.index') }}">Wróć na pulpit</a>
+</div>
+{% endblock %}
+{% block public %}
+<div class="login-page">
+  <div class="login-card empty-state" data-testid="error-page">
+    <div class="error-code">{{ code }}</div>
+    <h1>{{ message }}</h1>
+    <a class="btn btn-primary" href="{{ url_for('auth.login') }}">Zaloguj się</a>
+  </div>
+</div>
+{% endblock %}

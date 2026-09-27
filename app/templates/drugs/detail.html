@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badges, rx_badge %}
+{% block title %}{{ drug.name }}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <a class="back-link" href="{{ url_for('drugs.index') }}">‹ Lista leków</a>
+    <h1 data-testid="drug-title">{{ drug.name }} <small class="muted">{{ drug.strength }}</small></h1>
+    <div class="badges">{{ rx_badge(drug.rx) }} {{ status_badges(statuses) }}</div>
+  </div>
+  <div class="header-actions">
+    <a class="btn btn-ghost" href="{{ url_for('drugs.edit', drug_id=drug.id) }}" data-testid="edit-drug">Edytuj</a>
+    {% if g.user.role == 'kierownik' %}
+    <form method="post" action="{{ url_for('drugs.delete', drug_id=drug.id) }}"
+          data-confirm="Czy na pewno usunąć lek {{ drug.name }}?" onsubmit="return confirm(this.dataset.confirm);">
+      <button type="submit" class="btn btn-danger" data-testid="delete-drug">Usuń</button>
+    </form>
+    {% endif %}
+  </div>
+</header>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>Informacje</h2>
+    <dl class="details" data-testid="drug-details">
+      <dt>Substancja czynna</dt><dd data-testid="detail-substance">{{ drug.active_substance }}</dd>
+      <dt>Postać</dt><dd>{{ drug.form }}</dd>
+      <dt>Kategoria</dt><dd>{{ drug.category }}</dd>
+      <dt>Cena</dt><dd data-testid="detail-price">{{ drug.price_grosze|pln }}</dd>
+      <dt>Stan magazynowy</dt><dd data-testid="detail-stock">{{ drug.stock }} szt.</dd>
+      <dt>Stan minimalny</dt><dd>{{ drug.min_stock }} szt.</dd>
+      <dt>Ważny do</dt><dd data-testid="detail-expiry">{{ drug.expiry_date }}</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Przyjęcie dostawy</h2>
+    <form method="post" action="{{ url_for('drugs.restock', drug_id=drug.id) }}" class="inline-form" novalidate data-testid="restock-form">
+      <div class="field">
+        <label for="restock-qty">Ilość [szt.]</label>
+        <input id="restock-qty" name="quantity" inputmode="numeric" placeholder="np. 50">
+      </div>
+      <button type="submit" class="btn btn-primary">Przyjmij</button>
+    </form>
+
+    <h2 class="mt">Interakcje</h2>
+    {% if interactions %}
+      <ul class="interaction-list" data-testid="drug-interactions">
+        {% for i in interactions %}
+        <li class="sev-{{ i.severity }}">
+          <strong>{{ i.substance_b if i.substance_a == drug.active_substance else i.substance_a }}</strong>
+          <span class="badge">{{ i.severity }}</span>
+          <div class="small">{{ i.description }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Brak znanych interakcji z lekami w asortymencie.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <h2>Ostatnie sprzedaże</h2>
+  {% if recent %}
+  <table class="table" data-testid="drug-recent-sales">
+    <thead><tr><th>Paragon</th><th>Data</th><th class="num">Ilość</th><th class="num">Cena</th></tr></thead>
+    <tbody>
+      {% for r in recent %}
+      <tr>
+        <td><a href="{{ url_for('sales.receipt', sale_id=r.id) }}">#{{ r.id }}</a></td>
+        <td>{{ r.created_at }}</td>
+        <td class="num">{{ r.quantity }}</td>
+        <td class="num">{{ r.unit_price_grosze|pln }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="muted">Ten lek nie był jeszcze sprzedawany.</p>
+  {% endif %}
+</section>
+{% endblock %}

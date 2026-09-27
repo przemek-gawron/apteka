@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination %}
+{% block title %}Historia sprzedaży{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>Historia sprzedaży</h1>
+    <p class="muted" data-testid="sales-summary">Paragonów: {{ count }} · suma: {{ total_sum|pln }}</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('sales.export_csv', **filters) }}" data-testid="export-csv" download>Eksport CSV</a>
+</header>
+
+<form class="card filters" method="get" data-testid="sales-filters">
+  <div class="field">
+    <label for="date_from">Od</label>
+    <input id="date_from" name="date_from" type="date" value="{{ filters.date_from }}">
+  </div>
+  <div class="field">
+    <label for="date_to">Do</label>
+    <input id="date_to" name="date_to" type="date" value="{{ filters.date_to }}">
+  </div>
+  <div class="field">
+    <label for="payment">Płatność</label>
+    <select id="payment" name="payment">
+      <option value="">Wszystkie</option>
+      {% for key, label in payment_methods.items() %}
+        <option value="{{ key }}" {{ 'selected' if filters.payment == key }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">Filtruj</button>
+    <a class="btn btn-ghost" href="{{ url_for('sales.history') }}">Wyczyść</a>
+  </div>
+</form>
+
+{% if error %}<div class="alert alert-error" role="alert" data-testid="sales-filter-error">{{ error }}</div>{% endif %}
+
+<section class="card">
+  {% if sales %}
+  <div class="table-wrap">
+  <table class="table" data-testid="sales-table">
+    <thead><tr><th>Nr</th><th>Data</th><th>Sprzedawca</th><th>Płatność</th><th class="num">Sztuk</th><th class="num">Kwota</th></tr></thead>
+    <tbody>
+      {% for s in sales %}
+      <tr data-testid="sale-row">
+        <td><a href="{{ url_for('sales.receipt', sale_id=s.id) }}">#{{ s.id }}</a></td>
+        <td data-testid="sale-date">{{ s.created_at }}</td>
+        <td>{{ s.seller }}</td>
+        <td data-testid="sale-payment">{{ payment_methods[s.payment_method] }}</td>
+        <td class="num">{{ s.items_count }}</td>
+        <td class="num" data-testid="sale-total">{{ s.total_grosze|pln }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {{ pagination('sales.history', page, pages, filters) }}
+  {% elif not error %}
+  <div class="empty-state" data-testid="sales-empty"><h2>Brak sprzedaży w wybranym okresie</h2></div>
+  {% endif %}
+</section>
+{% endblock %}

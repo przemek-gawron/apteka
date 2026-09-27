@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badges %}
+{% block title %}Pulpit{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>Pulpit</h1>
+    <p class="muted">Dzień dobry, {{ g.user.full_name.split()[0] }} · {{ today.strftime('%d.%m.%Y') }}</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('sales.pos') }}">Nowa sprzedaż</a>
+</header>
+
+<section class="kpis" aria-label="Podsumowanie dnia">
+  <div class="kpi" data-testid="kpi-revenue">
+    <div class="kpi-label">Obrót dziś</div>
+    <div class="kpi-value">{{ summary.revenue_today|pln }}</div>
+    {% if summary.revenue_yesterday %}
+      {% set diff = ((summary.revenue_today - summary.revenue_yesterday) / summary.revenue_yesterday * 100)|round|int %}
+      <div class="kpi-sub {{ 'up' if diff >= 0 else 'down' }}">{{ '+' if diff >= 0 }}{{ diff }}% vs wczoraj (cały dzień)</div>
+    {% endif %}
+  </div>
+  <div class="kpi" data-testid="kpi-sales">
+    <div class="kpi-label">Paragony dziś</div>
+    <div class="kpi-value">{{ summary.sales_today }}</div>
+    <div class="kpi-sub">śr. koszyk {{ summary.avg_basket|pln }}</div>
+  </div>
+  <a class="kpi kpi-link" href="{{ url_for('drugs.index', status='low_stock') }}" data-testid="kpi-low-stock">
+    <div class="kpi-label">Niski stan</div>
+    <div class="kpi-value {{ 'warn' if summary.low_stock }}">{{ summary.low_stock }}</div>
+    <div class="kpi-sub">leków do zamówienia</div>
+  </a>
+  <a class="kpi kpi-link" href="{{ url_for('drugs.index', status='expiring') }}" data-testid="kpi-expiring">
+    <div class="kpi-label">Kończy się ważność</div>
+    <div class="kpi-value {{ 'warn' if summary.expiring }}">{{ summary.expiring }}</div>
+    <div class="kpi-sub">w ciągu 30 dni · przeterminowane: {{ summary.expired }}</div>
+  </a>
+</section>
+
+<section class="card chart-card chart-wide">
+  <div class="card-header">
+    <h2>Obrót dzienny</h2>
+    <label class="inline-select">
+      Zakres
+      <select id="revenue-range" data-testid="revenue-range">
+        <option value="7">7 dni</option>
+        <option value="30" selected>30 dni</option>
+        <option value="90">90 dni</option>
+      </select>
+    </label>
+  </div>
+  <div class="chart-box" data-chart="revenue">
+    <div class="spinner" data-testid="revenue-loading" aria-label="Ładowanie"></div>
+    <canvas id="revenue-chart" data-testid="revenue-chart" hidden></canvas>
+    <div class="chart-error" data-testid="revenue-error" hidden>Nie udało się załadować danych.</div>
+  </div>
+  <div class="chart-foot muted" data-testid="revenue-total" hidden></div>
+</section>
+
+<div class="grid-2">
+  <section class="card chart-card">
+    <div class="card-header"><h2>Top 5 leków <small class="muted">30 dni, sztuki</small></h2></div>
+    <div class="chart-box" data-chart="top">
+      <div class="spinner" data-testid="top-loading" aria-label="Ładowanie"></div>
+      <canvas id="top-chart" hidden></canvas>
+      <div class="chart-error" data-testid="top-error" hidden>Nie udało się załadować danych.</div>
+    </div>
+    <ol class="top-list" data-testid="top-list"></ol>
+  </section>
+  <section class="card chart-card">
+    <div class="card-header"><h2>Obrót wg kategorii <small class="muted">30 dni</small></h2></div>
+    <div class="chart-box" data-chart="categories">
+      <div class="spinner" data-testid="categories-loading" aria-label="Ładowanie"></div>
+      <canvas id="categories-chart" hidden></canvas>
+      <div class="chart-error" data-testid="categories-error" hidden>Nie udało się załadować danych.</div>
+    </div>
+  </section>
+</div>
+
+<div class="grid-2">
+  <section class="card">
+    <div class="card-header">
+      <h2>Do zamówienia</h2>
+      <a href="{{ url_for('drugs.index', status='low_stock') }}">Wszystkie ›</a>
+    </div>
+    {% if low_stock %}
+    <table class="table" data-testid="low-stock-table">
+      <thead><tr><th>Lek</th><th class="num">Stan</th><th class="num">Min.</th></tr></thead>
+      <tbody>
+        {% for d in low_stock %}
+        <tr>
+          <td><a href="{{ url_for('drugs.detail', drug_id=d.id) }}">{{ d.name }}</a> <small class="muted">{{ d.strength }}</small></td>
+          <td class="num {{ 'danger' if d.stock == 0 else 'warn' }}">{{ d.stock }}</td>
+          <td class="num muted">{{ d.min_stock }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="muted" data-testid="low-stock-empty">Wszystkie stany w normie.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <h2>Terminy ważności</h2>
+      <a href="{{ url_for('drugs.index', status='expiring') }}">Wszystkie ›</a>
+    </div>
+    {% if expiring %}
+    <table class="table" data-testid="expiring-table">
+      <thead><tr><th>Lek</th><th>Ważny do</th><th></th></tr></thead>
+      <tbody>
+        {% for d in expiring %}
+        <tr>
+          <td><a href="{{ url_for('drugs.detail', drug_id=d.id) }}">{{ d.name }}</a></td>
+          <td>{{ d.expiry_date }}</td>
+          <td>{{ status_badges(['expired'] if d.expiry_date < today.isoformat() else ['expiring']) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="muted">Brak leków z kończącą się ważnością.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% from "_macros.html" import rx_badge %}
+{% block title %}Kasa{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>Kasa</h1>
+    <p class="muted">Dodaj leki do koszyka i zakończ sprzedaż.</p>
+  </div>
+</header>
+
+{% if error %}
+  <div class="alert alert-error" role="alert" data-testid="pos-error">{{ error }}</div>
+{% endif %}
+
+<div class="pos-grid">
+  <section class="card">
+    <h2>Dodaj pozycję</h2>
+    <form method="post" action="{{ url_for('sales.add_to_cart') }}" novalidate data-testid="add-item-form" id="add-item-form">
+      <div class="field">
+        <label for="drug_id">Lek</label>
+        <select id="drug_id" name="drug_id">
+          <option value="">— wybierz lek —</option>
+          {% for d in drugs %}
+          <option value="{{ d.id }}" data-rx="{{ d.rx }}" {{ 'selected' if form.get('drug_id') == d.id|string }}>
+            {{ d.name }} {{ d.strength }}{{ ' (Rx)' if d.rx }} — {{ d.price_grosze|pln }} · stan: {{ d.stock }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="quantity">Ilość</label>
+          <input id="quantity" name="quantity" value="{{ form.get('quantity', '1') }}" inputmode="numeric">
+        </div>
+        <div class="field" id="rx-field">
+          <label for="prescription_code">Kod recepty</label>
+          <input id="prescription_code" name="prescription_code" value="{{ form.get('prescription_code', '') }}"
+                 inputmode="numeric" maxlength="4" placeholder="4 cyfry">
+          <div class="hint">Wymagany dla leków Rx</div>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" data-testid="add-to-cart">Dodaj do koszyka</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <h2>Koszyk</h2>
+      {% if lines %}
+      <form method="post" action="{{ url_for('sales.clear_cart') }}">
+        <button class="btn btn-ghost btn-sm" type="submit" data-testid="clear-cart">Wyczyść</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if cart_interactions %}
+    <div class="alert alert-warn" data-testid="cart-interactions-warning">
+      <strong>Uwaga — interakcje w koszyku:</strong>
+      <ul>
+        {% for i in cart_interactions %}
+          <li>{{ i.substance_a }} + {{ i.substance_b }} ({{ i.severity }})</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if lines %}
+    <table class="table" data-testid="cart-table">
+      <thead><tr><th>Lek</th><th class="num">Ilość</th><th class="num">Cena</th><th class="num">Wartość</th><th></th></tr></thead>
+      <tbody>
+        {% for l in lines %}
+        <tr data-testid="cart-row">
+          <td>
+            <span data-testid="cart-item-name">{{ l.drug.name }}</span> {{ rx_badge(l.drug.rx) }}
+            {% if l.prescription_code %}<div class="small muted">recepta: {{ l.prescription_code }}</div>{% endif %}
+          </td>
+          <td class="num" data-testid="cart-item-qty">{{ l.quantity }}</td>
+          <td class="num">{{ l.drug.price_grosze|pln }}</td>
+          <td class="num" data-testid="cart-item-subtotal">{{ l.subtotal|pln }}</td>
+          <td class="num">
+            <form method="post" action="{{ url_for('sales.remove_from_cart', index=l.index) }}">
+              <button class="icon-btn" type="submit" aria-label="Usuń {{ l.drug.name }}" data-testid="remove-item">×</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="total-row"><td colspan="3">Do zapłaty</td><td class="num" data-testid="cart-total">{{ total|pln }}</td><td></td></tr>
+      </tfoot>
+    </table>
+
+    <form method="post" action="{{ url_for('sales.checkout') }}" class="checkout" novalidate data-testid="checkout-form">
+      <fieldset class="field">
+        <legend>Płatność</legend>
+        <div class="radio-group">
+          {% for key, label in payment_methods.items() %}
+          <label class="radio">
+            <input type="radio" name="payment_method" value="{{ key }}" {{ 'checked' if form.get('payment_method', 'karta') == key }}>
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="field" id="cash-field">
+        <label for="cash_received">Otrzymano [zł]</label>
+        <input id="cash_received" name="cash_received" value="{{ form.get('cash_received', '') }}" inputmode="decimal">
+        <div class="hint" data-testid="change-preview"></div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block btn-lg" data-testid="checkout">Zakończ sprzedaż</button>
+    </form>
+    {% else %}
+      <div class="empty-state small" data-testid="cart-empty">Koszyk jest pusty.</div>
+    {% endif %}
+  </section>
+</div>
+
+{% if pending %}
+<div class="modal-backdrop" data-testid="interaction-modal" role="dialog" aria-modal="true" aria-labelledby="interaction-title">
+  <div class="modal">
+    <h2 id="interaction-title">⚠ Wykryto interakcję</h2>
+    <p>Dodawany lek <strong>{{ pending.drug.name }}</strong> ({{ pending.drug.active_substance }}) wchodzi w interakcję z lekiem w koszyku:</p>
+    <ul class="interaction-list">
+      {% for i in interactions %}
+      <li class="sev-{{ i.severity }}">
+        <strong>{{ i.substance_a }} + {{ i.substance_b }}</strong>
+        <span class="badge" data-testid="interaction-severity">{{ i.severity }}</span>
+        <div class="small">{{ i.description }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="modal-actions">
+      <a class="btn btn-ghost" href="{{ url_for('sales.pos') }}" data-testid="interaction-cancel">Anuluj</a>
+      <form method="post" action="{{ url_for('sales.add_to_cart') }}">
+        <input type="hidden" name="drug_id" value="{{ pending.drug.id }}">
+        <input type="hidden" name="quantity" value="{{ pending.quantity }}">
+        <input type="hidden" name="prescription_code" value="{{ pending.prescription_code or '' }}">
+        <input type="hidden" name="confirm_interaction" value="1">
+        <button type="submit" class="btn btn-danger" data-testid="interaction-confirm">Dodaj mimo to</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Pole "kod recepty" tylko dla leków Rx, pole "otrzymano" tylko przy gotówce.
+  (function () {
+    const select = document.getElementById("drug_id");
+    const rxField = document.getElementById("rx-field");
+    const syncRx = () => {
+      const opt = select.selectedOptions[0];
+      rxField.hidden = !(opt && opt.dataset.rx === "1");
+    };
+    select.addEventListener("change", syncRx);
+    syncRx();
+
+    const cashField = document.getElementById("cash-field");
+    if (!cashField) return;
+    const total = {{ total }} / 100;
+    const cashInput = document.getElementById("cash_received");
+    const preview = document.querySelector('[data-testid="change-preview"]');
+    const pln = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" });
+    const syncCash = () => {
+      const method = document.querySelector('input[name="payment_method"]:checked');
+      cashField.hidden = !method || method.value !== "gotowka";
+      const cash = parseFloat(cashInput.value.replace(",", "."));
+      preview.textContent = isNaN(cash) ? "" :
+        cash >= total ? `Reszta: ${pln.format(cash - total)}` : `Brakuje: ${pln.format(total - cash)}`;
+    };
+    document.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", syncCash));
+    cashInput.addEventListener("input", syncCash);
+    syncCash();
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Apteka{% endblock %} · Apteka Pod Wagą</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2315803d'/><path d='M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z' fill='white'/></svg>">
+</head>
+<body>
+{% if g.user %}
+<div class="layout">
+  <aside class="sidebar">
+    <a class="brand" href="{{ url_for('dashboard.index') }}">
+      <span class="brand-mark" aria-hidden="true">+</span>
+      <span>Apteka<br><small>Pod Wagą</small></span>
+    </a>
+    <nav aria-label="Menu główne" data-testid="main-nav">
+      {% set ep = request.endpoint or '' %}
+      <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if ep == 'dashboard.index' }}">Pulpit</a>
+      <a href="{{ url_for('sales.pos') }}" class="{{ 'active' if ep.startswith('sales.') and ep not in ('sales.history', 'sales.receipt') }}">
+        Kasa
+        {% if session.get('cart') %}<span class="nav-badge" data-testid="cart-count">{{ session['cart']|length }}</span>{% endif %}
+      </a>
+      <a href="{{ url_for('drugs.index') }}" class="{{ 'active' if ep.startswith('drugs.') }}">Leki</a>
+      <a href="{{ url_for('sales.history') }}" class="{{ 'active' if ep in ('sales.history', 'sales.receipt') }}">Sprzedaż</a>
+    </nav>
+    <div class="user-box">
+      <div>
+        <div class="user-name" data-testid="user-name">{{ g.user.full_name }}</div>
+        <div class="user-role" data-testid="user-role">{{ g.user.role }}</div>
+      </div>
+      <form method="post" action="{{ url_for('auth.logout') }}">
+        <button type="submit" class="btn btn-ghost btn-sm">Wyloguj</button>
+      </form>
+    </div>
+  </aside>
+  <main class="content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flashes" role="status">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}" data-testid="flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% else %}
+  {% block public %}{% endblock %}
+{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

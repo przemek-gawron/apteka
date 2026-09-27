@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field_error %}
+{% set editing = drug is not none %}
+{% block title %}{{ 'Edycja: ' ~ drug.name if editing else 'Nowy lek' }}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <a class="back-link" href="{{ url_for('drugs.detail', drug_id=drug.id) if editing else url_for('drugs.index') }}">‹ Wróć</a>
+    <h1>{{ 'Edycja leku' if editing else 'Nowy lek' }}</h1>
+  </div>
+</header>
+
+{% if errors %}
+  <div class="alert alert-error" role="alert" data-testid="form-errors">
+    Formularz zawiera błędy ({{ errors|length }}). Popraw zaznaczone pola.
+  </div>
+{% endif %}
+
+<form method="post" class="card form-grid" novalidate data-testid="drug-form">
+  <div class="field span-2 {{ 'has-error' if errors.name }}">
+    <label for="name">Nazwa handlowa *</label>
+    <input id="name" name="name" value="{{ values.get('name', '') }}" maxlength="80">
+    {{ field_error(errors, 'name') }}
+  </div>
+
+  <div class="field span-2 {{ 'has-error' if errors.active_substance }}">
+    <label for="active_substance">Substancja czynna *</label>
+    <input id="active_substance" name="active_substance" value="{{ values.get('active_substance', '') }}">
+    {{ field_error(errors, 'active_substance') }}
+  </div>
+
+  <div class="field {{ 'has-error' if errors.form }}">
+    <label for="form">Postać *</label>
+    <select id="form" name="form">
+      <option value="">— wybierz —</option>
+      {% for f in forms %}<option {{ 'selected' if values.get('form') == f }}>{{ f }}</option>{% endfor %}
+    </select>
+    {{ field_error(errors, 'form') }}
+  </div>
+
+  <div class="field {{ 'has-error' if errors.strength }}">
+    <label for="strength">Dawka *</label>
+    <input id="strength" name="strength" value="{{ values.get('strength', '') }}" placeholder="np. 500 mg">
+    {{ field_error(errors, 'strength') }}
+  </div>
+
+  <div class="field span-2 {{ 'has-error' if errors.category }}">
+    <label for="category">Kategoria *</label>
+    <select id="category" name="category">
+      <option value="">— wybierz —</option>
+      {% for c in categories %}<option {{ 'selected' if values.get('category') == c }}>{{ c }}</option>{% endfor %}
+    </select>
+    {{ field_error(errors, 'category') }}
+  </div>
+
+  <div class="field {{ 'has-error' if errors.price }}">
+    <label for="price">Cena [zł] *</label>
+    <input id="price" name="price" value="{{ values.get('price', '') }}" inputmode="decimal" placeholder="12,50">
+    {{ field_error(errors, 'price') }}
+  </div>
+
+  <div class="field {{ 'has-error' if errors.expiry_date }}">
+    <label for="expiry_date">Data ważności *</label>
+    <input id="expiry_date" name="expiry_date" type="date" value="{{ values.get('expiry_date', '') }}">
+    {{ field_error(errors, 'expiry_date') }}
+  </div>
+
+  <div class="field {{ 'has-error' if errors.stock }}">
+    <label for="stock">Stan magazynowy *</label>
+    <input id="stock" name="stock" value="{{ values.get('stock', '') }}" inputmode="numeric">
+    {{ field_error(errors, 'stock') }}
+  </div>
+
+  <div class="field {{ 'has-error' if errors.min_stock }}">
+    <label for="min_stock">Stan minimalny *</label>
+    <input id="min_stock" name="min_stock" value="{{ values.get('min_stock', '') }}" inputmode="numeric">
+    {{ field_error(errors, 'min_stock') }}
+  </div>
+
+  <div class="field span-4">
+    <label class="checkbox">
+      <input type="checkbox" name="rx" value="1" {{ 'checked' if values.get('rx') in (1, '1', 'on', True) }}>
+      Lek wydawany na receptę (Rx)
+    </label>
+  </div>
+
+  <div class="form-actions span-4">
+    <button type="submit" class="btn btn-primary" data-testid="save-drug">{{ 'Zapisz zmiany' if editing else 'Dodaj lek' }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('drugs.detail', drug_id=drug.id) if editing else url_for('drugs.index') }}">Anuluj</a>
+  </div>
+</form>
+{% endblock %}

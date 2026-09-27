@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination, status_badges, rx_badge %}
+{% block title %}Leki{% endblock %}
+
+{% macro sort_link(key, label) %}
+  {% set active = filters.sort == key %}
+  {% set next_order = 'desc' if active and filters.order == 'asc' else 'asc' %}
+  <a class="sort-link {{ 'active' if active }}" data-testid="sort-{{ key }}"
+     href="{{ url_for('drugs.index', **dict(filters, sort=key, order=next_order, page=1)) }}">
+    {{ label }}{% if active %} {{ '▲' if filters.order == 'asc' else '▼' }}{% endif %}
+  </a>
+{% endmacro %}
+
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>Leki</h1>
+    <p class="muted" data-testid="drugs-count">Znaleziono: {{ total }}</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('drugs.create') }}" data-testid="add-drug">+ Dodaj lek</a>
+</header>
+
+<form class="card filters" method="get" data-testid="drug-filters">
+  <div class="field grow">
+    <label for="q">Szukaj</label>
+    <input id="q" name="q" type="search" value="{{ filters.q }}" placeholder="Nazwa lub substancja czynna">
+  </div>
+  <div class="field">
+    <label for="category">Kategoria</label>
+    <select id="category" name="category">
+      <option value="">Wszystkie</option>
+      {% for c in categories %}<option {{ 'selected' if filters.category == c }}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="rx">Dostępność</label>
+    <select id="rx" name="rx">
+      <option value="">Wszystkie</option>
+      <option value="rx" {{ 'selected' if filters.rx == 'rx' }}>Na receptę (Rx)</option>
+      <option value="otc" {{ 'selected' if filters.rx == 'otc' }}>Bez recepty (OTC)</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="status">Status</label>
+    <select id="status" name="status">
+      <option value="">Wszystkie</option>
+      <option value="low_stock" {{ 'selected' if filters.status == 'low_stock' }}>Niski stan</option>
+      <option value="expiring" {{ 'selected' if filters.status == 'expiring' }}>Kończy się ważność</option>
+      <option value="expired" {{ 'selected' if filters.status == 'expired' }}>Przeterminowane</option>
+    </select>
+  </div>
+  <input type="hidden" name="sort" value="{{ filters.sort }}">
+  <input type="hidden" name="order" value="{{ filters.order }}">
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">Filtruj</button>
+    <a class="btn btn-ghost" href="{{ url_for('drugs.index') }}">Wyczyść</a>
+  </div>
+</form>
+
+<section class="card">
+  {% if drugs %}
+  <div class="table-wrap">
+  <table class="table" data-testid="drugs-table">
+    <thead>
+      <tr>
+        <th>{{ sort_link('name', 'Nazwa') }}</th>
+        <th>Substancja czynna</th>
+        <th>Kategoria</th>
+        <th class="num">{{ sort_link('price', 'Cena') }}</th>
+        <th class="num">{{ sort_link('stock', 'Stan') }}</th>
+        <th>{{ sort_link('expiry', 'Ważny do') }}</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in drugs %}
+      <tr data-testid="drug-row" data-drug-id="{{ d.id }}">
+        <td>
+          <a class="drug-name" href="{{ url_for('drugs.detail', drug_id=d.id) }}">{{ d.name }}</a>
+          {{ rx_badge(d.rx) }}
+          <div class="muted small">{{ d.form }} · {{ d.strength }}</div>
+        </td>
+        <td>{{ d.active_substance }}</td>
+        <td>{{ d.category }}</td>
+        <td class="num" data-testid="drug-price">{{ d.price_grosze|pln }}</td>
+        <td class="num" data-testid="drug-stock">{{ d.stock }}</td>
+        <td data-testid="drug-expiry">{{ d.expiry_date }}</td>
+        <td>{{ status_badges(drug_status(d)) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {{ pagination('drugs.index', page, pages, filters) }}
+  {% else %}
+  <div class="empty-state" data-testid="drugs-empty">
+    <h2>Brak leków spełniających kryteria</h2>
+    <a class="btn btn-ghost" href="{{ url_for('drugs.index') }}">Wyczyść filtry</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

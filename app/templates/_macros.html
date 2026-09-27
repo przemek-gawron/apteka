@@ -1,0 +1,31 @@
+{% macro pagination(endpoint, page, pages, args) %}
+{% if pages > 1 %}
+<nav class="pagination" aria-label="Paginacja" data-testid="pagination">
+  {% if page > 1 %}
+    <a class="btn btn-ghost btn-sm" href="{{ url_for(endpoint, **dict(args, page=page - 1)) }}">‹ Poprzednia</a>
+  {% else %}
+    <span class="btn btn-ghost btn-sm disabled" aria-disabled="true">‹ Poprzednia</span>
+  {% endif %}
+  <span class="page-info" data-testid="page-info">Strona {{ page }} z {{ pages }}</span>
+  {% if page < pages %}
+    <a class="btn btn-ghost btn-sm" href="{{ url_for(endpoint, **dict(args, page=page + 1)) }}">Następna ›</a>
+  {% else %}
+    <span class="btn btn-ghost btn-sm disabled" aria-disabled="true">Następna ›</span>
+  {% endif %}
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro status_badges(statuses) %}
+  {% if 'expired' in statuses %}<span class="badge badge-danger" data-testid="badge-expired">Przeterminowany</span>{% endif %}
+  {% if 'expiring' in statuses %}<span class="badge badge-warn" data-testid="badge-expiring">Kończy się ważność</span>{% endif %}
+  {% if 'low_stock' in statuses %}<span class="badge badge-warn" data-testid="badge-low-stock">Niski stan</span>{% endif %}
+{% endmacro %}
+
+{% macro rx_badge(rx) %}
+  {% if rx %}<span class="badge badge-rx" title="Lek na receptę">Rx</span>{% else %}<span class="badge badge-otc" title="Lek bez recepty">OTC</span>{% endif %}
+{% endmacro %}
+
+{% macro field_error(errors, name) %}
+  {% if errors.get(name) %}<div class="field-error" data-testid="error-{{ name }}">{{ errors[name] }}</div>{% endif %}
+{% endmacro %}

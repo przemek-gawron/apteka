@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Logowanie{% endblock %}
+{% block public %}
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="brand-mark" aria-hidden="true">+</span>
+      <div>
+        <h1>Apteka Pod Wagą</h1>
+        <p class="muted">System obsługi apteki</p>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash flash-{{ category }}" data-testid="flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% if error %}
+      <div class="alert alert-error" role="alert" data-testid="login-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" novalidate data-testid="login-form">
+      <div class="field">
+        <label for="username">Login</label>
+        <input id="username" name="username" value="{{ username }}" autocomplete="username" autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Hasło</label>
+        <input id="password" name="password" type="password" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Zaloguj się</button>
+    </form>
+
+    <details class="demo-accounts">
+      <summary>Konta testowe</summary>
+      <table>
+        <tr><td><code>kierownik</code></td><td><code>kierownik123</code></td><td>pełne uprawnienia</td></tr>
+        <tr><td><code>farmaceuta</code></td><td><code>farmaceuta123</code></td><td>bez usuwania leków</td></tr>
+      </table>
+    </details>
+  </div>
+</div>
+{% endblock %}

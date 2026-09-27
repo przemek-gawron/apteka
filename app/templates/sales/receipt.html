@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Paragon #{{ sale.id }}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <a class="back-link" href="{{ url_for('sales.history') }}">‹ Historia sprzedaży</a>
+    <h1>Paragon <span data-testid="receipt-number">#{{ sale.id }}</span></h1>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('sales.pos') }}">Nowa sprzedaż</a>
+</header>
+
+<section class="card receipt" data-testid="receipt">
+  <div class="receipt-head">
+    <strong>Apteka Pod Wagą</strong>
+    <div class="muted small">ul. Farmaceutów 12, 00-001 Warszawa</div>
+    <div class="muted small" data-testid="receipt-date">{{ sale.created_at }} · kasjer: {{ sale.seller }}</div>
+  </div>
+  <table class="table">
+    <thead><tr><th>Lek</th><th class="num">Ilość</th><th class="num">Cena</th><th class="num">Wartość</th></tr></thead>
+    <tbody>
+      {% for i in items %}
+      <tr data-testid="receipt-item">
+        <td>{{ i.drug_name }}{% if i.prescription_code %}<div class="small muted">Rx, recepta {{ i.prescription_code }}</div>{% endif %}</td>
+        <td class="num">{{ i.quantity }}</td>
+        <td class="num">{{ i.unit_price_grosze|pln }}</td>
+        <td class="num">{{ (i.quantity * i.unit_price_grosze)|pln }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="total-row"><td colspan="3">Suma</td><td class="num" data-testid="receipt-total">{{ sale.total_grosze|pln }}</td></tr>
+      <tr><td colspan="3">Płatność</td><td class="num" data-testid="receipt-payment">{{ payment_methods[sale.payment_method] }}</td></tr>
+      {% if sale.cash_received_grosze is not none %}
+      <tr><td colspan="3">Otrzymano</td><td class="num" data-testid="receipt-cash">{{ sale.cash_received_grosze|pln }}</td></tr>
+      <tr><td colspan="3">Reszta</td><td class="num" data-testid="receipt-change">{{ (sale.cash_received_grosze - sale.total_grosze)|pln }}</td></tr>
+      {% endif %}
+    </tfoot>
+  </table>
+</section>
+{% endblock %}
