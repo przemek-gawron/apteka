@@ -9,13 +9,30 @@ Stack: Python, Flask, SQLite, Chart.js. Wszystko działa lokalnie, bez internetu
 ## Uruchomienie
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+python -m venv venv
+```
+
+Aktywacja środowiska wirtualnego:
+
+```bash
+source venv/bin/activate          # Linux / macOS
+```
+
+```powershell
+.\venv\Scripts\Activate.ps1       # Windows (PowerShell)
+```
+
+Potem:
+
+```bash
+python -m pip install -r requirements.txt
 python -m playwright install chromium
 
 python run.py                     # http://127.0.0.1:5000
 ```
+
+W PowerShell nie używaj `source` — to polecenie powłoki Unix.
+Jeśli `pip` nie jest rozpoznawany, użyj `python -m pip` (jak wyżej).
 
 Konta:
 
