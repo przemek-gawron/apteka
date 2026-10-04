@@ -25,7 +25,7 @@ source venv/bin/activate          # Linux / macOS
 Potem:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 python -m playwright install chromium
 
 python run.py                     # http://127.0.0.1:5000

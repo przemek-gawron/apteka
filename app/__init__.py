@@ -6,7 +6,11 @@ from . import db
 
 
 def create_app():
-    app = Flask(__name__, instance_relative_config=True)
+    # Na Vercelu katalog projektu jest tylko do odczytu. SQLite musi leżeć w /tmp.
+    flask_kwargs = {"instance_relative_config": True}
+    if os.environ.get("VERCEL") == "1":
+        flask_kwargs["instance_path"] = "/tmp/apteka-instance"
+    app = Flask(__name__, **flask_kwargs)
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev-apteka-secret"),
         DATABASE=os.environ.get("DATABASE", os.path.join(app.instance_path, "apteka.db")),
