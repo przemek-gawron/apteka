@@ -4,8 +4,50 @@ import io
 import re
 from datetime import date, datetime, timedelta
 
+from flask import g, has_request_context
+
 from .db import get_db
-from .utils import CATEGORIES, EXPIRY_WARNING_DAYS, FORMS, PAYMENT_METHODS, now_str, parse_pln, today
+from .utils import (CATEGORIES, EXPIRY_WARNING_DAYS, FORMS, PAYMENT_METHODS, format_pln, now_str, parse_pln,
+                    today)
+
+AUDIT_ACTIONS = {
+    "zmiana_ceny": "Zmiana ceny",
+    "usuniecie": "Usunięcie leku",
+    "sprzedaz": "Sprzedaż",
+    "zwrot": "Zwrot",
+    "dostawa": "Dostawa",
+    "zamowienie": "Zamówienie",
+}
+
+
+def audit(action, entity, entity_id, details):
+    user_id = None
+    if has_request_context():
+        user = getattr(g, "user", None)
+        if user is not None:
+            user_id = user["id"]
+    get_db().execute(
+        """INSERT INTO audit_log (created_at, user_id, action, entity, entity_id, details)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (now_str(), user_id, action, entity, entity_id, details),
+    )
+
+
+def list_audit(action="", page=1, page_size=10):
+    where, params = [], []
+    if action in AUDIT_ACTIONS:
+        where.append("a.action = ?")
+        params.append(action)
+    sql_where = ("WHERE " + " AND ".join(where)) if where else ""
+    db = get_db()
+    total = db.execute(f"SELECT COUNT(*) FROM audit_log a {sql_where}", params).fetchone()[0]
+    rows = db.execute(
+        f"""SELECT a.*, u.full_name AS author
+            FROM audit_log a LEFT JOIN users u ON u.id = a.user_id
+            {sql_where} ORDER BY a.id DESC LIMIT ? OFFSET ?""",
+        params + [page_size, (page - 1) * page_size],
+    ).fetchall()
+    return rows, total
 
 # ---------------------------------------------------------------- leki
 
@@ -160,6 +202,7 @@ def _sync_batches(drug_id, stock, expiry_date):
 
 def update_drug(drug_id, clean):
     db = get_db()
+    old = get_drug(drug_id)
     db.execute(
         """UPDATE drugs SET name=:name, active_substance=:active_substance, form=:form,
                strength=:strength, category=:category, price_grosze=:price_grosze, stock=:stock,
@@ -168,10 +211,18 @@ def update_drug(drug_id, clean):
         dict(clean, id=drug_id),
     )
     _sync_batches(drug_id, clean["stock"], clean["expiry_date"])
+    if old and old["price_grosze"] != clean["price_grosze"]:
+        audit(
+            "zmiana_ceny", "drug", drug_id,
+            f"{clean['name']}: {format_pln(old['price_grosze'])} → {format_pln(clean['price_grosze'])}",
+        )
     db.commit()
 
 
 def delete_drug(drug_id):
+    drug = get_drug(drug_id)
+    if drug:
+        audit("usuniecie", "drug", drug_id, drug["name"])
     get_db().execute("DELETE FROM drugs WHERE id = ?", (drug_id,))
     get_db().commit()
 
@@ -338,6 +389,10 @@ def advance_order(order_id):
         for item in items:
             restock(item["drug_id"], item["quantity"], lot=f"ZAM-{order_id}-{item['drug_id']}")
     db.execute("UPDATE orders SET status = ? WHERE id = ?", (nxt, order_id))
+    audit(
+        "zamowienie", "order", order_id,
+        f"Zamówienie #{order_id}: {ORDER_STATUSES[order['status']]} → {ORDER_STATUSES[nxt]}",
+    )
     db.commit()
     return nxt, None
 
@@ -371,6 +426,8 @@ def restock(drug_id, quantity, lot=None, expiry_date=None):
                 "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
                 (drug_id, f"LOT-{drug_id:03d}", expiry, quantity),
             )
+    lot_note = f", partia {lot}" if lot else ""
+    audit("dostawa", "drug", drug_id, f"{drug['name']} +{quantity} szt.{lot_note}")
     db.commit()
 
 
@@ -530,6 +587,7 @@ def create_sale(items, payment_method, cash_received_grosze, user_id, invoice=No
                 (item.lastrowid, batch_id, lot, take),
             )
         db.execute("UPDATE drugs SET stock = stock - ? WHERE id = ?", (qty, drug["id"]))
+    audit("sprzedaz", "sale", sale_id, f"Sprzedaż #{sale_id} · {format_pln(total)} · {payment_method}")
     db.commit()
     return sale_id
 
@@ -634,6 +692,8 @@ def create_return(sale_id, quantities, reason, user_id):
             (return_id, item["id"], item["drug_id"], item["drug_name"], qty, item["unit_price_grosze"]),
         )
         _restore_stock(db, item["drug_id"], qty)
+    names = ", ".join(f"{item['drug_name']} × {qty}" for item, qty in lines)
+    audit("zwrot", "return", return_id, f"Zwrot #{return_id} do paragonu #{sale_id}: {names}")
     db.commit()
     return return_id
 

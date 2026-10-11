@@ -3,7 +3,7 @@ import sqlite3
 import click
 from flask import current_app, g
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 SCHEMA = """
 DROP TABLE IF EXISTS return_items;
@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS sales;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS batches;
+DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS interactions;
 DROP TABLE IF EXISTS drugs;
 DROP TABLE IF EXISTS users;
@@ -121,7 +122,18 @@ CREATE TABLE sale_allocations (
     quantity INTEGER NOT NULL
 );
 
+CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    user_id INTEGER REFERENCES users (id),
+    action TEXT NOT NULL,
+    entity TEXT NOT NULL,
+    entity_id INTEGER,
+    details TEXT NOT NULL
+);
+
 CREATE INDEX idx_sales_created ON sales (created_at);
+CREATE INDEX idx_audit_created ON audit_log (created_at);
 CREATE INDEX idx_batches_drug ON batches (drug_id, expiry_date);
 CREATE INDEX idx_items_sale ON sale_items (sale_id);
 """

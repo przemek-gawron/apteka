@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination %}
+{% block title %}Dziennik{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>Dziennik zmian</h1>
+    <p class="muted" data-testid="audit-count">Zdarzeń: {{ total }}</p>
+  </div>
+</header>
+
+<form class="card filters" method="get" data-testid="audit-filters">
+  <div class="field">
+    <label for="action">Zdarzenie</label>
+    <select id="action" name="action">
+      <option value="">Wszystkie</option>
+      {% for key, label in actions.items() %}
+      <option value="{{ key }}" {{ 'selected' if action == key }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filter-actions">
+    <button class="btn btn-primary" type="submit">Filtruj</button>
+    <a class="btn btn-ghost" href="{{ url_for('journal.index') }}">Wyczyść</a>
+  </div>
+</form>
+
+<section class="card">
+  {% if rows %}
+  <table class="table" data-testid="audit-table">
+    <thead><tr><th>Czas</th><th>Kto</th><th>Zdarzenie</th><th>Opis</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr data-testid="audit-row">
+        <td>{{ row.created_at }}</td>
+        <td>{{ row.author or "—" }}</td>
+        <td>{{ actions[row.action] }}</td>
+        <td data-testid="audit-details">{{ row.details }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {{ pagination('journal.index', page, pages, {'action': action}) }}
+  {% else %}
+  <p class="muted" data-testid="audit-empty">Brak wpisów dla wybranego filtra.</p>
+  {% endif %}
+</section>
+{% endblock %}
