@@ -56,9 +56,14 @@
     <div class="card-header">
       <h2>Koszyk</h2>
       {% if lines %}
-      <form method="post" action="{{ url_for('sales.clear_cart') }}">
-        <button class="btn btn-ghost btn-sm" type="submit" data-testid="clear-cart">Wyczyść</button>
-      </form>
+      <div class="header-actions">
+        <form method="post" action="{{ url_for('sales.park_cart') }}">
+          <button class="btn btn-ghost btn-sm" type="submit" data-testid="park-cart">Wstrzymaj</button>
+        </form>
+        <form method="post" action="{{ url_for('sales.clear_cart') }}">
+          <button class="btn btn-ghost btn-sm" type="submit" data-testid="clear-cart">Wyczyść</button>
+        </form>
+      </div>
       {% endif %}
     </div>
 
@@ -123,6 +128,34 @@
     {% endif %}
   </section>
 </div>
+
+<section class="card" data-testid="parked-sales">
+  <h2>Wstrzymane sprzedaże</h2>
+  {% if parked %}
+  <table class="table">
+    <thead><tr><th>Godzina</th><th>Pozycje</th><th class="num">Wartość</th><th></th></tr></thead>
+    <tbody>
+      {% for p in parked %}
+      <tr data-testid="parked-row">
+        <td>{{ p.label }}</td>
+        <td>{{ p.names|join(', ') }}</td>
+        <td class="num">{{ p.total|pln }}</td>
+        <td class="num">
+          <form method="post" action="{{ url_for('sales.restore_parked', parked_id=p.id) }}" class="inline-actions">
+            <button class="btn btn-primary btn-sm" type="submit" data-testid="restore-parked">Przywróć</button>
+          </form>
+          <form method="post" action="{{ url_for('sales.discard_parked', parked_id=p.id) }}" class="inline-actions">
+            <button class="btn btn-ghost btn-sm" type="submit" data-testid="discard-parked">Usuń</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted" data-testid="parked-empty">Brak wstrzymanych sprzedaży.</p>
+  {% endif %}
+</section>
 
 {% if pending %}
 <div class="modal-backdrop" data-testid="interaction-modal" role="dialog" aria-modal="true" aria-labelledby="interaction-title">

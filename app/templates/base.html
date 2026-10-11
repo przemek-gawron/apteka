@@ -21,6 +21,7 @@
       <a href="{{ url_for('sales.pos') }}" class="{{ 'active' if ep.startswith('sales.') and ep not in ('sales.history', 'sales.receipt') }}">
         Kasa
         {% if session.get('cart') %}<span class="nav-badge" data-testid="cart-count">{{ session['cart']|length }}</span>{% endif %}
+        {% if session.get('parked') %}<span class="nav-badge nav-badge-muted" data-testid="parked-count">{{ session['parked']|length }}</span>{% endif %}
       </a>
       <a href="{{ url_for('drugs.index') }}" class="{{ 'active' if ep.startswith('drugs.') }}">Leki</a>
       <a href="{{ url_for('sales.history') }}" class="{{ 'active' if ep in ('sales.history', 'sales.receipt') }}">Sprzedaż</a>

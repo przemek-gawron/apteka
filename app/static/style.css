@@ -83,6 +83,9 @@ code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-
 .sidebar nav a:hover { background: var(--surface-2); text-decoration: none; }
 .sidebar nav a.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 .nav-badge { background: var(--primary); color: #fff; border-radius: 999px; font-size: .75rem; padding: 0 7px; font-weight: 600; }
+.nav-badge-muted { background: var(--warn); }
+.sidebar nav a { gap: 6px; }
+.inline-actions { display: inline-block; }
 .user-box { border-top: 1px solid var(--border); padding: 14px 6px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .user-name { font-weight: 600; font-size: .9rem; }
 .user-role { font-size: .8rem; color: var(--muted); text-transform: capitalize; }

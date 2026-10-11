@@ -1,6 +1,7 @@
 import csv
 import io
 import math
+from datetime import datetime
 
 from flask import (Blueprint, Response, abort, current_app, flash, g, redirect, render_template, request,
                    session, url_for)
@@ -30,6 +31,20 @@ def _cart_lines(cart):
     return lines, total
 
 
+def _parked_views():
+    views = []
+    for entry in session.get("parked", []):
+        names, total = [], 0
+        for item in entry["items"]:
+            drug = services.get_drug(item["drug_id"])
+            if drug is None:
+                continue
+            names.append(f"{drug['name']} × {item['quantity']}")
+            total += drug["price_grosze"] * item["quantity"]
+        views.append({"id": entry["id"], "label": entry["label"], "names": names, "total": total})
+    return views
+
+
 def _render_pos(pending=None, interactions=None, form=None, error=None, status=200):
     cart = _cart()
     lines, total = _cart_lines(cart)
@@ -39,6 +54,7 @@ def _render_pos(pending=None, interactions=None, form=None, error=None, status=2
         drugs=drugs, lines=lines, total=total, pending=pending, interactions=interactions or [],
         form=form or {}, error=error, payment_methods=PAYMENT_METHODS,
         cart_interactions=services.cart_interactions([i["drug_id"] for i in cart]),
+        parked=_parked_views(),
     ), status
 
 
@@ -88,6 +104,52 @@ def remove_from_cart(index):
     if 0 <= index < len(cart):
         cart.pop(index)
         session.modified = True
+    return redirect(url_for("sales.pos"))
+
+
+@bp.route("/kasa/wstrzymaj", methods=["POST"])
+@login_required
+def park_cart():
+    cart = list(_cart())
+    if not cart:
+        flash("Nie ma czego wstrzymać — koszyk jest pusty.", "error")
+        return redirect(url_for("sales.pos"))
+    seq = session.get("parked_seq", 0) + 1
+    session["parked_seq"] = seq
+    session.setdefault("parked", []).append({
+        "id": seq,
+        "label": datetime.now().strftime("%H:%M"),
+        "items": cart,
+    })
+    session["cart"] = []
+    session.modified = True
+    flash("Sprzedaż wstrzymana. Możesz zacząć następną.", "success")
+    return redirect(url_for("sales.pos"))
+
+
+@bp.route("/kasa/wstrzymaj/<int:parked_id>/przywroc", methods=["POST"])
+@login_required
+def restore_parked(parked_id):
+    if _cart():
+        flash("Najpierw dokończ albo wstrzymaj bieżący koszyk.", "error")
+        return redirect(url_for("sales.pos"))
+    parked = session.get("parked", [])
+    found = next((entry for entry in parked if entry["id"] == parked_id), None)
+    if found is None:
+        abort(404)
+    session["cart"] = found["items"]
+    session["parked"] = [entry for entry in parked if entry["id"] != parked_id]
+    session.modified = True
+    flash("Przywrócono wstrzymaną sprzedaż.", "success")
+    return redirect(url_for("sales.pos"))
+
+
+@bp.route("/kasa/wstrzymaj/<int:parked_id>/usun", methods=["POST"])
+@login_required
+def discard_parked(parked_id):
+    session["parked"] = [entry for entry in session.get("parked", []) if entry["id"] != parked_id]
+    session.modified = True
+    flash("Usunięto wstrzymaną sprzedaż.", "info")
     return redirect(url_for("sales.pos"))
 
 
