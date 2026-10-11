@@ -28,12 +28,14 @@ def create_app():
     from .dashboard import bp as dashboard_bp
     from .drugs import bp as drugs_bp
     from .sales import bp as sales_bp
+    from .orders import bp as orders_bp
     from .api import bp as api_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(drugs_bp)
     app.register_blueprint(sales_bp)
+    app.register_blueprint(orders_bp)
     app.register_blueprint(api_bp)
 
     from .utils import format_pln

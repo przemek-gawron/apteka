@@ -274,6 +274,74 @@ def apply_delivery(rows):
     return len(rows)
 
 
+ORDER_STATUSES = {"szkic": "Szkic", "wyslane": "Wysłane", "przyjete": "Przyjęte"}
+ORDER_NEXT = {"szkic": "wyslane", "wyslane": "przyjete"}
+
+
+def create_order_from_shortages(user_id):
+    db = get_db()
+    drugs = db.execute(
+        "SELECT * FROM drugs WHERE stock <= min_stock ORDER BY name COLLATE NOCASE"
+    ).fetchall()
+    if not drugs:
+        return None
+    cur = db.execute(
+        "INSERT INTO orders (created_at, user_id, status) VALUES (?, ?, 'szkic')",
+        (now_str(), user_id),
+    )
+    order_id = cur.lastrowid
+    for drug in drugs:
+        qty = min(max(drug["min_stock"] - drug["stock"], 1), 1000)
+        db.execute(
+            "INSERT INTO order_items (order_id, drug_id, drug_name, quantity) VALUES (?, ?, ?, ?)",
+            (order_id, drug["id"], drug["name"], qty),
+        )
+    db.commit()
+    return order_id
+
+
+def list_orders():
+    return get_db().execute(
+        """SELECT o.*, u.full_name AS author,
+                  (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) AS items_count,
+                  (SELECT COALESCE(SUM(quantity), 0) FROM order_items WHERE order_id = o.id) AS units
+           FROM orders o JOIN users u ON u.id = o.user_id
+           ORDER BY o.id DESC"""
+    ).fetchall()
+
+
+def get_order(order_id):
+    db = get_db()
+    order = db.execute(
+        """SELECT o.*, u.full_name AS author FROM orders o JOIN users u ON u.id = o.user_id
+           WHERE o.id = ?""",
+        (order_id,),
+    ).fetchone()
+    if order is None:
+        return None, []
+    items = db.execute(
+        "SELECT * FROM order_items WHERE order_id = ? ORDER BY drug_name COLLATE NOCASE", (order_id,)
+    ).fetchall()
+    return order, items
+
+
+def advance_order(order_id):
+    """szkic → wysłane → przyjęte. Przyjęcie zwiększa stan. Zwraca (status, błąd)."""
+    order, items = get_order(order_id)
+    if order is None:
+        return None, "Nie znaleziono zamówienia."
+    nxt = ORDER_NEXT.get(order["status"])
+    if nxt is None:
+        return None, "To zamówienie jest już przyjęte."
+    db = get_db()
+    if nxt == "przyjete":
+        for item in items:
+            restock(item["drug_id"], item["quantity"], lot=f"ZAM-{order_id}-{item['drug_id']}")
+    db.execute("UPDATE orders SET status = ? WHERE id = ?", (nxt, order_id))
+    db.commit()
+    return nxt, None
+
+
 def list_batches(drug_id):
     return get_db().execute(
         "SELECT * FROM batches WHERE drug_id = ? ORDER BY expiry_date, id", (drug_id,)

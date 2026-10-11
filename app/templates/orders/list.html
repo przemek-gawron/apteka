@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Zamówienia{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>Zamówienia do hurtowni</h1>
+    <p class="muted">Szkic, wysłane, a po przyjęciu stan leku rośnie.</p>
+  </div>
+  <form method="post" action="{{ url_for('orders.from_shortages') }}">
+    <button type="submit" class="btn btn-primary" data-testid="order-shortages">Zamów braki</button>
+  </form>
+</header>
+
+<section class="card">
+  {% if orders %}
+  <table class="table" data-testid="orders-table">
+    <thead><tr><th>Nr</th><th>Data</th><th>Autor</th><th>Status</th><th class="num">Pozycje</th><th class="num">Sztuk</th></tr></thead>
+    <tbody>
+      {% for o in orders %}
+      <tr data-testid="order-row">
+        <td><a href="{{ url_for('orders.detail', order_id=o.id) }}">#{{ o.id }}</a></td>
+        <td>{{ o.created_at }}</td>
+        <td>{{ o.author }}</td>
+        <td data-testid="order-status">{{ statuses[o.status] }}</td>
+        <td class="num">{{ o.items_count }}</td>
+        <td class="num">{{ o.units }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted" data-testid="orders-empty">Brak zamówień. Utwórz szkic z leków poniżej stanu minimalnego.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Zamówienie #{{ order.id }}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <a class="back-link" href="{{ url_for('orders.index') }}">‹ Zamówienia</a>
+    <h1>Zamówienie #{{ order.id }}</h1>
+    <p class="muted">{{ order.created_at }} · {{ order.author }} · <span data-testid="order-status">{{ statuses[order.status] }}</span></p>
+  </div>
+  {% if next_status %}
+  <form method="post" action="{{ url_for('orders.advance', order_id=order.id) }}">
+    <button type="submit" class="btn btn-primary" data-testid="order-advance">
+      {{ 'Wyślij do hurtowni' if order.status == 'szkic' else 'Przyjmij na stan' }}
+    </button>
+  </form>
+  {% endif %}
+</header>
+
+<section class="card">
+  <table class="table" data-testid="order-items">
+    <thead><tr><th>Lek</th><th class="num">Ilość</th></tr></thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td><a href="{{ url_for('drugs.detail', drug_id=item.drug_id) }}">{{ item.drug_name }}</a></td>
+        <td class="num">{{ item.quantity }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

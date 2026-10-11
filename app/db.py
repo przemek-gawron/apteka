@@ -3,7 +3,7 @@ import sqlite3
 import click
 from flask import current_app, g
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA = """
 DROP TABLE IF EXISTS return_items;
@@ -11,6 +11,8 @@ DROP TABLE IF EXISTS returns;
 DROP TABLE IF EXISTS sale_allocations;
 DROP TABLE IF EXISTS sale_items;
 DROP TABLE IF EXISTS sales;
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS orders;
 DROP TABLE IF EXISTS batches;
 DROP TABLE IF EXISTS interactions;
 DROP TABLE IF EXISTS drugs;
@@ -44,6 +46,21 @@ CREATE TABLE batches (
     drug_id INTEGER NOT NULL REFERENCES drugs (id) ON DELETE CASCADE,
     lot TEXT NOT NULL,
     expiry_date TEXT NOT NULL,
+    quantity INTEGER NOT NULL
+);
+
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users (id),
+    status TEXT NOT NULL CHECK (status IN ('szkic', 'wyslane', 'przyjete'))
+);
+
+CREATE TABLE order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+    drug_id INTEGER NOT NULL REFERENCES drugs (id),
+    drug_name TEXT NOT NULL,
     quantity INTEGER NOT NULL
 );
 

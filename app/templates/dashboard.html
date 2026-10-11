@@ -80,7 +80,14 @@
   <section class="card">
     <div class="card-header">
       <h2>Do zamówienia</h2>
-      <a href="{{ url_for('drugs.index', status='low_stock') }}">Wszystkie ›</a>
+      <div class="header-actions">
+        {% if low_stock %}
+        <form method="post" action="{{ url_for('orders.from_shortages') }}">
+          <button class="btn btn-ghost btn-sm" type="submit" data-testid="order-shortages">Zamów braki</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('drugs.index', status='low_stock') }}">Wszystkie ›</a>
+      </div>
     </div>
     {% if low_stock %}
     <table class="table" data-testid="low-stock-table">
