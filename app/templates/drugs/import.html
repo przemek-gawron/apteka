@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Import dostawy{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <a class="back-link" href="{{ url_for('drugs.index') }}">‹ Lista leków</a>
+    <h1>Import dostawy</h1>
+    <p class="muted">Plik CSV z kolumnami <code>nazwa;ilosc</code>. Nagłówek jest opcjonalny.</p>
+  </div>
+</header>
+
+<section class="card">
+  <form method="post" enctype="multipart/form-data" data-testid="import-form">
+    <div class="field">
+      <label for="file">Plik CSV</label>
+      <input id="file" name="file" type="file" accept=".csv,text/csv" data-testid="import-file">
+      <div class="hint">Przykład: <code>Apap;20</code>. Ilość od 1 do 1000. Nieznana nazwa blokuje przyjęcie.</div>
+    </div>
+    <button type="submit" class="btn btn-primary">Sprawdź plik</button>
+  </form>
+</section>
+
+{% if preview %}
+<section class="card">
+  <h2>Podgląd</h2>
+  <table class="table" data-testid="import-preview">
+    <thead><tr><th>Wiersz</th><th>Lek</th><th class="num">Ilość</th><th>Wynik</th></tr></thead>
+    <tbody>
+      {% for row in preview %}
+      <tr class="{{ 'row-error' if row.error }}" data-testid="import-row">
+        <td>{{ row.line }}</td>
+        <td>{{ row.name or "—" }}</td>
+        <td class="num">{{ row.quantity }}</td>
+        <td data-testid="import-result">{{ row.error or "OK" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if can_apply %}
+  <form method="post" action="{{ url_for('drugs.confirm_import') }}">
+    <button type="submit" class="btn btn-primary" data-testid="import-confirm">Przyjmij dostawę</button>
+  </form>
+  {% else %}
+  <p class="alert alert-error" data-testid="import-blocked">Popraw plik — dostawa z błędami nie zostanie przyjęta.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

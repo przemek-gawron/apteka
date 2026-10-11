@@ -1,6 +1,7 @@
 import math
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import (Blueprint, abort, current_app, flash, redirect, render_template, request, session,
+                   url_for)
 
 from . import services
 from .auth import login_required, manager_required
@@ -39,6 +40,42 @@ def index():
         drugs=drugs, total=total, page=page, pages=pages, filters=filters,
         categories=CATEGORIES, drug_status=drug_status,
     )
+
+
+@bp.route("/import", methods=["GET", "POST"])
+@login_required
+def import_delivery():
+    if request.method == "POST":
+        upload = request.files.get("file")
+        if upload is None or not upload.filename:
+            flash("Wybierz plik CSV.", "error")
+            session.pop("delivery_import", None)
+        else:
+            rows, error = services.parse_delivery_csv(upload.read().decode("utf-8-sig", errors="replace"))
+            if error:
+                flash(error, "error")
+                session.pop("delivery_import", None)
+            else:
+                session["delivery_import"] = rows
+                session.modified = True
+        return redirect(url_for("drugs.import_delivery"))
+    preview = session.get("delivery_import") or []
+    return render_template(
+        "drugs/import.html", preview=preview, can_apply=bool(preview) and all(not row["error"] for row in preview),
+    )
+
+
+@bp.route("/import/zatwierdz", methods=["POST"])
+@login_required
+def confirm_import():
+    rows = session.get("delivery_import") or []
+    if not rows or any(row["error"] for row in rows):
+        flash("Nie można przyjąć dostawy, dopóki w pliku są błędy.", "error")
+        return redirect(url_for("drugs.import_delivery"))
+    count = services.apply_delivery(rows)
+    session.pop("delivery_import", None)
+    flash(f"Przyjęto dostawę: {count} pozycji.", "success")
+    return redirect(url_for("drugs.index"))
 
 
 @bp.route("/nowy", methods=["GET", "POST"])

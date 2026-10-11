@@ -1,6 +1,8 @@
 """Logika biznesowa współdzielona przez widoki HTML i REST API."""
+import csv
+import io
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from .db import get_db
 from .utils import CATEGORIES, EXPIRY_WARNING_DAYS, FORMS, PAYMENT_METHODS, now_str, parse_pln, today
@@ -215,6 +217,61 @@ def list_drugs(q="", category="", rx="", status="", sort="name", order="asc", pa
         sql += " LIMIT ? OFFSET ?"
         params = params + [page_size, (page - 1) * page_size]
     return db.execute(sql, params).fetchall(), total
+
+
+def parse_delivery_csv(text):
+    """Zwraca (wiersze, błąd pliku). Wiersz: line, name, quantity, drug_id, error."""
+    text = str(text or "").lstrip("\ufeff").strip()
+    if not text:
+        return None, "Plik jest pusty."
+    if len(text) > 100_000:
+        return None, "Plik jest za duży."
+    first = text.splitlines()[0]
+    delimiter = ";" if first.count(";") >= first.count(",") else ","
+    raw_rows = [
+        row for row in csv.reader(io.StringIO(text), delimiter=delimiter) if any(cell.strip() for cell in row)
+    ]
+    if not raw_rows:
+        return None, "Plik jest pusty."
+    start = 0
+    head = [cell.strip().lower() for cell in raw_rows[0]]
+    if head and head[0] in ("nazwa", "name", "lek"):
+        start = 1
+    body = raw_rows[start:]
+    if not body:
+        return None, "Brak wierszy z dostawą."
+    if len(body) > 100:
+        return None, "Plik może mieć najwyżej 100 wierszy."
+    parsed = []
+    for offset, row in enumerate(body, start=start + 1):
+        name = row[0].strip() if row else ""
+        qty_raw = row[1].strip() if len(row) > 1 else ""
+        entry = {"line": offset, "name": name, "quantity": qty_raw, "drug_id": None, "error": None}
+        if not name:
+            entry["error"] = "Brak nazwy."
+        else:
+            drug = get_db().execute(
+                "SELECT id, name FROM drugs WHERE lower(name) = lower(?)", (name,)
+            ).fetchone()
+            if drug is None:
+                entry["error"] = "Nieznany lek."
+            else:
+                entry["drug_id"] = drug["id"]
+                entry["name"] = drug["name"]
+        qty = _parse_int(qty_raw)
+        if entry["error"] is None and (qty is None or not 1 <= qty <= 1000):
+            entry["error"] = "Ilość musi być liczbą od 1 do 1000."
+        elif entry["error"] is None:
+            entry["quantity"] = qty
+        parsed.append(entry)
+    return parsed, None
+
+
+def apply_delivery(rows):
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    for index, row in enumerate(rows, start=1):
+        restock(row["drug_id"], int(row["quantity"]), lot=f"CSV-{stamp}-{index}")
+    return len(rows)
 
 
 def list_batches(drug_id):

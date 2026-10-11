@@ -17,7 +17,10 @@
     <h1>Leki</h1>
     <p class="muted" data-testid="drugs-count">Znaleziono: {{ total }}</p>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('drugs.create') }}" data-testid="add-drug">+ Dodaj lek</a>
+  <div class="header-actions">
+    <a class="btn btn-ghost" href="{{ url_for('drugs.import_delivery') }}" data-testid="import-delivery">Import CSV</a>
+    <a class="btn btn-primary" href="{{ url_for('drugs.create') }}" data-testid="add-drug">+ Dodaj lek</a>
+  </div>
 </header>
 
 <form class="card filters" method="get" data-testid="drug-filters">
