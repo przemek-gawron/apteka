@@ -27,6 +27,7 @@
       <a href="{{ url_for('sales.history') }}" class="{{ 'active' if ep in ('sales.history', 'sales.receipt', 'sales.create_return') }}">Sprzedaż</a>
       <a href="{{ url_for('orders.index') }}" class="{{ 'active' if ep.startswith('orders.') }}">Zamówienia</a>
       <a href="{{ url_for('journal.index') }}" class="{{ 'active' if ep.startswith('journal.') }}">Dziennik</a>
+      <a href="{{ url_for('shifts.index') }}" class="{{ 'active' if ep.startswith('shifts.') }}">Zmiana</a>
     </nav>
     <div class="user-box">
       <div>

@@ -30,6 +30,7 @@ def create_app():
     from .sales import bp as sales_bp
     from .orders import bp as orders_bp
     from .journal import bp as journal_bp
+    from .shifts import bp as shifts_bp
     from .api import bp as api_bp
 
     app.register_blueprint(auth_bp)
@@ -38,6 +39,7 @@ def create_app():
     app.register_blueprint(sales_bp)
     app.register_blueprint(orders_bp)
     app.register_blueprint(journal_bp)
+    app.register_blueprint(shifts_bp)
     app.register_blueprint(api_bp)
 
     from .utils import format_pln

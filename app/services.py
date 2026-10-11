@@ -33,6 +33,69 @@ def audit(action, entity, entity_id, details):
     )
 
 
+def current_shift(user_id):
+    return get_db().execute(
+        "SELECT * FROM shifts WHERE user_id = ? AND closed_at IS NULL ORDER BY id DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+
+
+def expected_cash(user_id, opened_at, closed_at=None):
+    """Gotówka z paragonów użytkownika w oknie zmiany, pomniejszona o zwroty gotówkowe."""
+    end = closed_at or "9999-12-31 23:59:59"
+    db = get_db()
+    sales = db.execute(
+        """SELECT COALESCE(SUM(total_grosze), 0) FROM sales
+           WHERE user_id = ? AND payment_method = 'gotowka' AND created_at >= ? AND created_at <= ?""",
+        (user_id, opened_at, end),
+    ).fetchone()[0]
+    returned = db.execute(
+        """SELECT COALESCE(SUM(r.total_grosze), 0)
+           FROM returns r JOIN sales s ON s.id = r.sale_id
+           WHERE r.user_id = ? AND s.payment_method = 'gotowka'
+             AND r.created_at >= ? AND r.created_at <= ?""",
+        (user_id, opened_at, end),
+    ).fetchone()[0]
+    return sales - returned
+
+
+def open_shift(user_id):
+    existing = current_shift(user_id)
+    if existing:
+        return existing["id"]
+    cur = get_db().execute(
+        "INSERT INTO shifts (user_id, opened_at) VALUES (?, ?)", (user_id, now_str())
+    )
+    get_db().commit()
+    return cur.lastrowid
+
+
+def close_shift(user_id, cash_counted_grosze):
+    shift = current_shift(user_id)
+    if shift is None:
+        return "Nie ma otwartej zmiany."
+    if cash_counted_grosze is None or cash_counted_grosze < 0:
+        return "Podaj policzoną gotówkę."
+    expected = expected_cash(user_id, shift["opened_at"])
+    get_db().execute(
+        """UPDATE shifts SET closed_at = ?, cash_counted_grosze = ?, expected_cash_grosze = ?
+           WHERE id = ?""",
+        (now_str(), cash_counted_grosze, expected, shift["id"]),
+    )
+    get_db().commit()
+    return None
+
+
+def list_closed_shifts():
+    return get_db().execute(
+        """SELECT s.*, u.full_name AS cashier,
+                  (s.cash_counted_grosze - s.expected_cash_grosze) AS difference
+           FROM shifts s JOIN users u ON u.id = s.user_id
+           WHERE s.closed_at IS NOT NULL
+           ORDER BY s.closed_at DESC LIMIT 30"""
+    ).fetchall()
+
+
 def list_audit(action="", page=1, page_size=10):
     where, params = [], []
     if action in AUDIT_ACTIONS:

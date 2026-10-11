@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Zmiana{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>Zmiana</h1>
+    <p class="muted">Policz gotówkę w szufladzie przy zamknięciu. Różnicę widzi kierownik.</p>
+  </div>
+</header>
+
+<section class="card" data-testid="shift-panel">
+  {% if shift %}
+  <p>Zmiana otwarta od <strong data-testid="shift-opened">{{ shift.opened_at }}</strong>.</p>
+  {% if g.user.role == 'kierownik' %}
+  <p data-testid="shift-expected">Oczekiwana gotówka: {{ expected|pln }}</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('shifts.close_shift') }}" class="inline-form" data-testid="shift-close-form">
+    <div class="field">
+      <label for="cash_counted">Gotówka w szufladzie [zł]</label>
+      <input id="cash_counted" name="cash_counted" inputmode="decimal" data-testid="shift-counted">
+    </div>
+    <button type="submit" class="btn btn-primary">Zamknij zmianę</button>
+  </form>
+  {% else %}
+  <p class="muted" data-testid="shift-closed">Brak otwartej zmiany.</p>
+  <form method="post" action="{{ url_for('shifts.open_shift') }}">
+    <button type="submit" class="btn btn-primary" data-testid="shift-open">Otwórz zmianę</button>
+  </form>
+  {% endif %}
+</section>
+
+{% if g.user.role == 'kierownik' %}
+<section class="card">
+  <h2>Zamknięte zmiany</h2>
+  {% if closed %}
+  <table class="table" data-testid="shifts-table">
+    <thead>
+      <tr><th>Kasjer</th><th>Od</th><th>Do</th><th class="num">Oczekiwano</th><th class="num">Policzono</th><th class="num">Różnica</th></tr>
+    </thead>
+    <tbody>
+      {% for s in closed %}
+      <tr data-testid="shift-row">
+        <td>{{ s.cashier }}</td>
+        <td>{{ s.opened_at }}</td>
+        <td>{{ s.closed_at }}</td>
+        <td class="num">{{ s.expected_cash_grosze|pln }}</td>
+        <td class="num">{{ s.cash_counted_grosze|pln }}</td>
+        <td class="num" data-testid="shift-diff">{{ s.difference|pln }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted" data-testid="shifts-empty">Nikt jeszcze nie zamknął zmiany.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
