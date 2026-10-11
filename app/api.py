@@ -6,7 +6,7 @@ from flask import Blueprint, current_app, g, jsonify, request, session
 from . import services
 from .auth import authenticate, login_required, manager_required
 from .db import init_db
-from .utils import drug_to_dict
+from .utils import drug_to_dict, valid_nip
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -142,8 +142,19 @@ def sales_create():
                        interactions=interactions), 409
     cash = data.get("cash_received")
     cash_grosze = round(cash * 100) if isinstance(cash, (int, float)) else None
+    invoice = None
+    if data.get("invoice"):
+        nip = valid_nip(data.get("invoice_nip"))
+        company = str(data.get("invoice_company") or "").strip()
+        if nip is None:
+            return jsonify(errors=["Niepoprawny NIP."]), 400
+        if len(company) < 2:
+            return jsonify(errors=["Podaj nazwę firmy na fakturze."]), 400
+        invoice = {"nip": nip, "company": company}
     try:
-        sale_id = services.create_sale(items, data.get("payment_method"), cash_grosze, g.user["id"])
+        sale_id = services.create_sale(
+            items, data.get("payment_method"), cash_grosze, g.user["id"], invoice=invoice,
+        )
     except services.SaleError as e:
         return jsonify(errors=e.errors), 400
     return jsonify(services.sale_to_dict(*services.get_sale(sale_id))), 201

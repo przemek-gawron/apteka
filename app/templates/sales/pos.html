@@ -116,6 +116,21 @@
           {% endfor %}
         </div>
       </fieldset>
+      <label class="checkbox">
+        <input type="checkbox" name="invoice" value="1" id="invoice" data-testid="invoice-toggle"
+               {{ 'checked' if form.get('invoice') == '1' }}>
+        Faktura
+      </label>
+      <div id="invoice-fields" {% if form.get('invoice') != '1' %}hidden{% endif %}>
+        <div class="field">
+          <label for="invoice_nip">NIP</label>
+          <input id="invoice_nip" name="invoice_nip" value="{{ form.get('invoice_nip', '') }}" inputmode="numeric" data-testid="invoice-nip" placeholder="10 cyfr">
+        </div>
+        <div class="field">
+          <label for="invoice_company">Nazwa firmy</label>
+          <input id="invoice_company" name="invoice_company" value="{{ form.get('invoice_company', '') }}" data-testid="invoice-company">
+        </div>
+      </div>
       <div class="field" id="cash-field">
         <label for="cash_received">Otrzymano [zł]</label>
         <input id="cash_received" name="cash_received" value="{{ form.get('cash_received', '') }}" inputmode="decimal">
@@ -299,6 +314,14 @@
     document.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", syncCash));
     cashInput.addEventListener("input", syncCash);
     syncCash();
+
+    const invoiceToggle = document.getElementById("invoice");
+    const invoiceFields = document.getElementById("invoice-fields");
+    if (invoiceToggle && invoiceFields) {
+      const syncInvoice = () => { invoiceFields.hidden = !invoiceToggle.checked; };
+      invoiceToggle.addEventListener("change", syncInvoice);
+      syncInvoice();
+    }
   })();
 </script>
 {% endblock %}

@@ -351,7 +351,7 @@ def cart_interactions(drug_ids):
     return find_interactions(substances, substances)
 
 
-def create_sale(items, payment_method, cash_received_grosze, user_id):
+def create_sale(items, payment_method, cash_received_grosze, user_id, invoice=None):
     """items: [{drug_id, quantity, prescription_code}]. Zwraca id sprzedaży albo rzuca SaleError."""
     errors = []
     if not items:
@@ -381,11 +381,14 @@ def create_sale(items, payment_method, cash_received_grosze, user_id):
     if errors:
         raise SaleError(errors)
 
+    invoice = invoice or {}
     cur = db.execute(
-        """INSERT INTO sales (created_at, user_id, total_grosze, payment_method, cash_received_grosze)
-           VALUES (?, ?, ?, ?, ?)""",
+        """INSERT INTO sales (created_at, user_id, total_grosze, payment_method, cash_received_grosze,
+                              invoice_nip, invoice_company)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (now_str(), user_id, total, payment_method,
-         cash_received_grosze if payment_method == "gotowka" else None),
+         cash_received_grosze if payment_method == "gotowka" else None,
+         invoice.get("nip"), invoice.get("company")),
     )
     sale_id = cur.lastrowid
     for drug, qty, code in lines:
@@ -453,6 +456,9 @@ def sale_to_dict(sale, items):
     if sale["cash_received_grosze"] is not None:
         d["cash_received"] = sale["cash_received_grosze"] / 100
         d["change"] = (sale["cash_received_grosze"] - sale["total_grosze"]) / 100
+    if sale["invoice_nip"]:
+        d["invoice_nip"] = sale["invoice_nip"]
+        d["invoice_company"] = sale["invoice_company"]
     return d
 
 

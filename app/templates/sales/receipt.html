@@ -32,6 +32,9 @@
     <tfoot>
       <tr class="total-row"><td colspan="3">Suma</td><td class="num" data-testid="receipt-total">{{ sale.total_grosze|pln }}</td></tr>
       <tr><td colspan="3">Płatność</td><td class="num" data-testid="receipt-payment">{{ payment_methods[sale.payment_method] }}</td></tr>
+      {% if sale.invoice_nip %}
+      <tr><td colspan="3">Faktura</td><td class="num" data-testid="receipt-invoice">{{ sale.invoice_company }} · NIP {{ sale.invoice_nip }}</td></tr>
+      {% endif %}
       {% if sale.cash_received_grosze is not none %}
       <tr><td colspan="3">Otrzymano</td><td class="num" data-testid="receipt-cash">{{ sale.cash_received_grosze|pln }}</td></tr>
       <tr><td colspan="3">Reszta</td><td class="num" data-testid="receipt-change">{{ (sale.cash_received_grosze - sale.total_grosze)|pln }}</td></tr>

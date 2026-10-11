@@ -9,7 +9,7 @@ from flask import (Blueprint, Response, abort, current_app, flash, g, redirect, 
 from . import services
 from .auth import login_required
 from .db import get_db
-from .utils import PAYMENT_METHODS, parse_pln
+from .utils import PAYMENT_METHODS, parse_pln, valid_nip
 
 bp = Blueprint("sales", __name__)
 
@@ -169,8 +169,18 @@ def checkout():
     cash = parse_pln(raw_cash) if method == "gotowka" and raw_cash.strip() else None
     if method == "gotowka" and raw_cash.strip() and cash is None:
         return _render_pos(form=request.form.to_dict(), error="Niepoprawna kwota otrzymana.", status=400)
+    form = request.form.to_dict()
+    invoice = None
+    if form.get("invoice") == "1":
+        nip = valid_nip(form.get("invoice_nip"))
+        company = (form.get("invoice_company") or "").strip()
+        if nip is None:
+            return _render_pos(form=form, error="Niepoprawny NIP.", status=400)
+        if len(company) < 2:
+            return _render_pos(form=form, error="Podaj nazwę firmy na fakturze.", status=400)
+        invoice = {"nip": nip, "company": company}
     try:
-        sale_id = services.create_sale(_cart(), method, cash, g.user["id"])
+        sale_id = services.create_sale(_cart(), method, cash, g.user["id"], invoice=invoice)
     except services.SaleError as e:
         return _render_pos(form=request.form.to_dict(), error=" ".join(e.errors), status=400)
     session["cart"] = []

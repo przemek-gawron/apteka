@@ -3,7 +3,7 @@ import sqlite3
 import click
 from flask import current_app, g
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 DROP TABLE IF EXISTS sale_allocations;
@@ -59,7 +59,9 @@ CREATE TABLE sales (
     user_id INTEGER NOT NULL REFERENCES users (id),
     total_grosze INTEGER NOT NULL,
     payment_method TEXT NOT NULL,
-    cash_received_grosze INTEGER
+    cash_received_grosze INTEGER,
+    invoice_nip TEXT,
+    invoice_company TEXT
 );
 
 CREATE TABLE sale_items (

@@ -41,6 +41,18 @@ def parse_pln(text):
     return int(zl) * 100 + int((gr + "00")[:2])
 
 
+def valid_nip(value):
+    """Zwraca 10 cyfr NIP albo None, gdy suma kontrolna się nie zgadza."""
+    digits = re.sub(r"[\s-]", "", str(value or ""))
+    if not re.fullmatch(r"\d{10}", digits):
+        return None
+    weights = (6, 5, 7, 2, 3, 4, 5, 6, 7)
+    checksum = sum(weight * int(digit) for weight, digit in zip(weights, digits)) % 11
+    if checksum == 10 or checksum != int(digits[9]):
+        return None
+    return digits
+
+
 def today():
     return date.today()
 
