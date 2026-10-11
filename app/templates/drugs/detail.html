@@ -30,7 +30,26 @@
       <dt>Stan magazynowy</dt><dd data-testid="detail-stock">{{ drug.stock }} szt.</dd>
       <dt>Stan minimalny</dt><dd>{{ drug.min_stock }} szt.</dd>
       <dt>Ważny do</dt><dd data-testid="detail-expiry">{{ drug.expiry_date }}</dd>
+      {% if drug.daily_limit %}
+      <dt>Limit dzienny</dt><dd data-testid="detail-daily-limit">{{ drug.daily_limit }} szt.</dd>
+      {% endif %}
     </dl>
+    {% if batches %}
+    <h2 class="mt">Partie</h2>
+    <p class="muted small">Sprzedaż schodzi z najkrótszej daty ważności.</p>
+    <table class="table" data-testid="batches">
+      <thead><tr><th>Partia</th><th>Ważna do</th><th class="num">Stan</th></tr></thead>
+      <tbody>
+        {% for b in batches %}
+        <tr data-testid="batch-row">
+          <td>{{ b.lot }}</td>
+          <td>{{ b.expiry_date }}</td>
+          <td class="num">{{ b.quantity }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
   </section>
 
   <section class="card">

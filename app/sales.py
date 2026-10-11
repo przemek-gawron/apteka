@@ -122,7 +122,10 @@ def receipt(sale_id):
     sale, items = services.get_sale(sale_id)
     if sale is None:
         abort(404)
-    return render_template("sales/receipt.html", sale=sale, items=items, payment_methods=PAYMENT_METHODS)
+    return render_template(
+        "sales/receipt.html", sale=sale, items=items, payment_methods=PAYMENT_METHODS,
+        allocations=services.sale_allocations(sale_id),
+    )
 
 
 def _history_filters():

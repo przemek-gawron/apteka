@@ -72,6 +72,27 @@ INTERACTIONS = [
 HISTORY_DAYS = 90
 
 
+def _seed_batches(conn, today):
+    """Jedna partia na lek. Espumisan ma dwie, sprzedaż schodzi z krótszej daty."""
+    for drug in conn.execute("SELECT id, name, stock, expiry_date FROM drugs"):
+        if drug["name"] == "Espumisan":
+            near = (today + timedelta(days=20)).isoformat()
+            conn.execute(
+                "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
+                (drug["id"], "ESP-2026-A", near, 20),
+            )
+            conn.execute(
+                "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
+                (drug["id"], "ESP-2027-B", drug["expiry_date"], drug["stock"] - 20),
+            )
+            conn.execute("UPDATE drugs SET expiry_date = ? WHERE id = ?", (near, drug["id"]))
+        else:
+            conn.execute(
+                "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
+                (drug["id"], f"LOT-{drug['id']:03d}", drug["expiry_date"], drug["stock"]),
+            )
+
+
 def seed(conn):
     rng = random.Random(42)
     today = date.today()
@@ -90,6 +111,8 @@ def seed(conn):
             (name, subst, form, strength, cat, price, stock, min_stock, rx,
              (today + timedelta(days=expiry_days)).isoformat()),
         )
+
+    _seed_batches(conn, today)
 
     conn.executemany(
         "INSERT INTO interactions (substance_a, substance_b, severity, description) VALUES (?, ?, ?, ?)",

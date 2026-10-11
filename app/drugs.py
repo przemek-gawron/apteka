@@ -71,7 +71,8 @@ def detail(drug_id):
         [r[0] for r in get_db().execute("SELECT DISTINCT active_substance FROM drugs")],
     )
     return render_template("drugs/detail.html", drug=drug, recent=recent,
-                           interactions=interactions, statuses=drug_status(drug))
+                           interactions=interactions, statuses=drug_status(drug),
+                           batches=services.list_batches(drug_id))
 
 
 @bp.route("/<int:drug_id>/edycja", methods=["GET", "POST"])

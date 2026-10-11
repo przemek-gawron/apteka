@@ -3,9 +3,13 @@ import sqlite3
 import click
 from flask import current_app, g
 
+SCHEMA_VERSION = 1
+
 SCHEMA = """
+DROP TABLE IF EXISTS sale_allocations;
 DROP TABLE IF EXISTS sale_items;
 DROP TABLE IF EXISTS sales;
+DROP TABLE IF EXISTS batches;
 DROP TABLE IF EXISTS interactions;
 DROP TABLE IF EXISTS drugs;
 DROP TABLE IF EXISTS users;
@@ -29,7 +33,16 @@ CREATE TABLE drugs (
     stock INTEGER NOT NULL,
     min_stock INTEGER NOT NULL,
     rx INTEGER NOT NULL DEFAULT 0,
-    expiry_date TEXT NOT NULL
+    expiry_date TEXT NOT NULL,
+    daily_limit INTEGER
+);
+
+CREATE TABLE batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drug_id INTEGER NOT NULL REFERENCES drugs (id) ON DELETE CASCADE,
+    lot TEXT NOT NULL,
+    expiry_date TEXT NOT NULL,
+    quantity INTEGER NOT NULL
 );
 
 CREATE TABLE interactions (
@@ -60,7 +73,16 @@ CREATE TABLE sale_items (
     prescription_code TEXT
 );
 
+CREATE TABLE sale_allocations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sale_item_id INTEGER NOT NULL REFERENCES sale_items (id) ON DELETE CASCADE,
+    batch_id INTEGER REFERENCES batches (id) ON DELETE SET NULL,
+    lot TEXT NOT NULL,
+    quantity INTEGER NOT NULL
+);
+
 CREATE INDEX idx_sales_created ON sales (created_at);
+CREATE INDEX idx_batches_drug ON batches (drug_id, expiry_date);
 CREATE INDEX idx_items_sale ON sale_items (sale_id);
 """
 
@@ -85,6 +107,7 @@ def init_db():
     conn = get_db()
     conn.executescript(SCHEMA)
     seed(conn)
+    conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
 
 

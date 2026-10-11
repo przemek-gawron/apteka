@@ -109,26 +109,64 @@ def validate_drug(data, drug_id=None):
 
 
 def insert_drug(clean):
-    cur = get_db().execute(
+    db = get_db()
+    cur = db.execute(
         """INSERT INTO drugs (name, active_substance, form, strength, category, price_grosze,
                               stock, min_stock, rx, expiry_date)
            VALUES (:name, :active_substance, :form, :strength, :category, :price_grosze,
                    :stock, :min_stock, :rx, :expiry_date)""",
         clean,
     )
-    get_db().commit()
-    return cur.lastrowid
+    drug_id = cur.lastrowid
+    db.execute(
+        "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
+        (drug_id, f"LOT-{drug_id:03d}", clean["expiry_date"], clean["stock"]),
+    )
+    db.commit()
+    return drug_id
+
+
+def _sync_batches(drug_id, stock, expiry_date):
+    """Dopasowuje sumę partii do stanu leku. Jedna partia trzyma też datę ważności leku."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, quantity FROM batches WHERE drug_id = ? ORDER BY expiry_date DESC, id DESC",
+        (drug_id,),
+    ).fetchall()
+    if not rows:
+        db.execute(
+            "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
+            (drug_id, f"LOT-{drug_id:03d}", expiry_date, stock),
+        )
+        return
+    delta = stock - sum(r["quantity"] for r in rows)
+    if delta > 0:
+        db.execute("UPDATE batches SET quantity = quantity + ? WHERE id = ?", (delta, rows[0]["id"]))
+    elif delta < 0:
+        left = -delta
+        for row in rows:
+            take = min(row["quantity"], left)
+            if take:
+                db.execute("UPDATE batches SET quantity = quantity - ? WHERE id = ?", (take, row["id"]))
+                left -= take
+            if left == 0:
+                break
+    only = db.execute("SELECT id FROM batches WHERE drug_id = ?", (drug_id,)).fetchall()
+    if len(only) == 1:
+        db.execute("UPDATE batches SET expiry_date = ? WHERE id = ?", (expiry_date, only[0]["id"]))
 
 
 def update_drug(drug_id, clean):
-    get_db().execute(
+    db = get_db()
+    db.execute(
         """UPDATE drugs SET name=:name, active_substance=:active_substance, form=:form,
                strength=:strength, category=:category, price_grosze=:price_grosze, stock=:stock,
                min_stock=:min_stock, rx=:rx, expiry_date=:expiry_date
            WHERE id=:id""",
         dict(clean, id=drug_id),
     )
-    get_db().commit()
+    _sync_batches(drug_id, clean["stock"], clean["expiry_date"])
+    db.commit()
 
 
 def delete_drug(drug_id):
@@ -179,9 +217,58 @@ def list_drugs(q="", category="", rx="", status="", sort="name", order="asc", pa
     return db.execute(sql, params).fetchall(), total
 
 
-def restock(drug_id, quantity):
-    get_db().execute("UPDATE drugs SET stock = stock + ? WHERE id = ?", (quantity, drug_id))
-    get_db().commit()
+def list_batches(drug_id):
+    return get_db().execute(
+        "SELECT * FROM batches WHERE drug_id = ? ORDER BY expiry_date, id", (drug_id,)
+    ).fetchall()
+
+
+def restock(drug_id, quantity, lot=None, expiry_date=None):
+    """Zwiększa stan. Podany numer partii trafia jako nowa partia, inaczej dokładamy do tej z datą leku."""
+    db = get_db()
+    drug = get_drug(drug_id)
+    expiry = expiry_date or drug["expiry_date"]
+    db.execute("UPDATE drugs SET stock = stock + ? WHERE id = ?", (quantity, drug_id))
+    if lot:
+        db.execute(
+            "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
+            (drug_id, lot, expiry, quantity),
+        )
+    else:
+        batch = db.execute(
+            "SELECT id FROM batches WHERE drug_id = ? AND expiry_date = ? ORDER BY id DESC LIMIT 1",
+            (drug_id, expiry),
+        ).fetchone()
+        if batch:
+            db.execute("UPDATE batches SET quantity = quantity + ? WHERE id = ?", (quantity, batch["id"]))
+        else:
+            db.execute(
+                "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
+                (drug_id, f"LOT-{drug_id:03d}", expiry, quantity),
+            )
+    db.commit()
+
+
+def _take_batches(db, drug_id, quantity):
+    """Zdejmuje sztuki z najkrótszej daty ważności. Zwraca listę (batch_id, lot, qty)."""
+    rows = db.execute(
+        """SELECT id, lot, quantity FROM batches
+           WHERE drug_id = ? AND quantity > 0 AND expiry_date >= ?
+           ORDER BY expiry_date, id""",
+        (drug_id, today().isoformat()),
+    ).fetchall()
+    left = quantity
+    taken = []
+    for row in rows:
+        take = min(row["quantity"], left)
+        if take <= 0:
+            continue
+        db.execute("UPDATE batches SET quantity = quantity - ? WHERE id = ?", (take, row["id"]))
+        taken.append((row["id"], row["lot"], take))
+        left -= take
+        if left == 0:
+            break
+    return taken
 
 
 # ---------------------------------------------------------------- sprzedaż
@@ -276,15 +363,34 @@ def create_sale(items, payment_method, cash_received_grosze, user_id):
     )
     sale_id = cur.lastrowid
     for drug, qty, code in lines:
-        db.execute(
+        item = db.execute(
             """INSERT INTO sale_items (sale_id, drug_id, drug_name, category, quantity,
                                        unit_price_grosze, prescription_code)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (sale_id, drug["id"], drug["name"], drug["category"], qty, drug["price_grosze"], code),
         )
+        for batch_id, lot, take in _take_batches(db, drug["id"], qty):
+            db.execute(
+                """INSERT INTO sale_allocations (sale_item_id, batch_id, lot, quantity)
+                   VALUES (?, ?, ?, ?)""",
+                (item.lastrowid, batch_id, lot, take),
+            )
         db.execute("UPDATE drugs SET stock = stock - ? WHERE id = ?", (qty, drug["id"]))
     db.commit()
     return sale_id
+
+
+def sale_allocations(sale_id):
+    rows = get_db().execute(
+        """SELECT a.sale_item_id, a.lot, a.quantity
+           FROM sale_allocations a JOIN sale_items i ON i.id = a.sale_item_id
+           WHERE i.sale_id = ? ORDER BY a.id""",
+        (sale_id,),
+    ).fetchall()
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row["sale_item_id"], []).append(row)
+    return grouped
 
 
 def get_sale(sale_id):

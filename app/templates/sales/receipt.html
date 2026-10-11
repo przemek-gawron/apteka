@@ -20,7 +20,9 @@
     <tbody>
       {% for i in items %}
       <tr data-testid="receipt-item">
-        <td>{{ i.drug_name }}{% if i.prescription_code %}<div class="small muted">Rx, recepta {{ i.prescription_code }}</div>{% endif %}</td>
+        <td>{{ i.drug_name }}{% if i.prescription_code %}<div class="small muted">Rx, recepta {{ i.prescription_code }}</div>{% endif %}
+          {% if allocations.get(i.id) %}<div class="small muted">partie: {% for a in allocations[i.id] %}{{ a.lot }} × {{ a.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+        </td>
         <td class="num">{{ i.quantity }}</td>
         <td class="num">{{ i.unit_price_grosze|pln }}</td>
         <td class="num">{{ (i.quantity * i.unit_price_grosze)|pln }}</td>
