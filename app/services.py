@@ -409,6 +409,110 @@ def create_sale(items, payment_method, cash_received_grosze, user_id, invoice=No
     return sale_id
 
 
+RETURN_REASONS = {
+    "rezygnacja": "Rezygnacja klienta",
+    "pomylka": "Pomyłka przy sprzedaży",
+    "wada": "Wada produktu",
+}
+
+
+def returned_qty_by_item(sale_id):
+    rows = get_db().execute(
+        """SELECT ri.sale_item_id, SUM(ri.quantity) AS qty
+           FROM return_items ri JOIN returns r ON r.id = ri.return_id
+           WHERE r.sale_id = ? GROUP BY ri.sale_item_id""",
+        (sale_id,),
+    ).fetchall()
+    return {row["sale_item_id"]: row["qty"] for row in rows}
+
+
+def list_returns(sale_id):
+    db = get_db()
+    returns = db.execute(
+        """SELECT r.*, u.full_name AS cashier
+           FROM returns r JOIN users u ON u.id = r.user_id
+           WHERE r.sale_id = ? ORDER BY r.id""",
+        (sale_id,),
+    ).fetchall()
+    items = db.execute(
+        """SELECT ri.* FROM return_items ri JOIN returns r ON r.id = ri.return_id
+           WHERE r.sale_id = ? ORDER BY ri.id""",
+        (sale_id,),
+    ).fetchall()
+    grouped = {}
+    for item in items:
+        grouped.setdefault(item["return_id"], []).append(item)
+    return returns, grouped
+
+
+def return_totals(sale_ids):
+    if not sale_ids:
+        return {}
+    marks = ",".join("?" * len(sale_ids))
+    rows = get_db().execute(
+        f"SELECT sale_id, SUM(total_grosze) AS total FROM returns WHERE sale_id IN ({marks}) GROUP BY sale_id",
+        sale_ids,
+    ).fetchall()
+    return {row["sale_id"]: row["total"] for row in rows}
+
+
+def _restore_stock(db, drug_id, quantity):
+    if not drug_id:
+        return
+    db.execute("UPDATE drugs SET stock = stock + ? WHERE id = ?", (quantity, drug_id))
+    batch = db.execute(
+        "SELECT id FROM batches WHERE drug_id = ? ORDER BY expiry_date, id LIMIT 1",
+        (drug_id,),
+    ).fetchone()
+    if batch:
+        db.execute("UPDATE batches SET quantity = quantity + ? WHERE id = ?", (quantity, batch["id"]))
+    else:
+        drug = get_drug(drug_id)
+        expiry = drug["expiry_date"] if drug else today().isoformat()
+        db.execute(
+            "INSERT INTO batches (drug_id, lot, expiry_date, quantity) VALUES (?, ?, ?, ?)",
+            (drug_id, f"ZWROT-{drug_id}", expiry, quantity),
+        )
+
+
+def create_return(sale_id, quantities, reason, user_id):
+    """quantities: {sale_item_id: qty}. Zwraca id zwrotu albo rzuca SaleError."""
+    sale, items = get_sale(sale_id)
+    if sale is None:
+        raise SaleError(["Nie znaleziono sprzedaży."])
+    if reason not in RETURN_REASONS:
+        raise SaleError(["Wybierz powód zwrotu."])
+    already = returned_qty_by_item(sale_id)
+    lines = []
+    for item in items:
+        qty = quantities.get(item["id"]) or 0
+        if qty == 0:
+            continue
+        if qty < 1 or qty > item["quantity"] - already.get(item["id"], 0):
+            raise SaleError([f"{item['drug_name']}: za duża ilość zwrotu."])
+        lines.append((item, qty))
+    if not lines:
+        raise SaleError(["Podaj ilość zwracanych sztuk."])
+
+    db = get_db()
+    total = sum(qty * item["unit_price_grosze"] for item, qty in lines)
+    cur = db.execute(
+        """INSERT INTO returns (sale_id, created_at, user_id, reason, total_grosze)
+           VALUES (?, ?, ?, ?, ?)""",
+        (sale_id, now_str(), user_id, reason, total),
+    )
+    return_id = cur.lastrowid
+    for item, qty in lines:
+        db.execute(
+            """INSERT INTO return_items (return_id, sale_item_id, drug_id, drug_name, quantity, unit_price_grosze)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (return_id, item["id"], item["drug_id"], item["drug_name"], qty, item["unit_price_grosze"]),
+        )
+        _restore_stock(db, item["drug_id"], qty)
+    db.commit()
+    return return_id
+
+
 def sale_allocations(sale_id):
     rows = get_db().execute(
         """SELECT a.sale_item_id, a.lot, a.quantity

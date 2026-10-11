@@ -7,7 +7,7 @@ from flask import (Blueprint, Response, abort, current_app, flash, g, redirect, 
                    session, url_for)
 
 from . import services
-from .auth import login_required
+from .auth import login_required, manager_required
 from .db import get_db
 from .utils import PAYMENT_METHODS, parse_pln, valid_nip
 
@@ -194,9 +194,12 @@ def receipt(sale_id):
     sale, items = services.get_sale(sale_id)
     if sale is None:
         abort(404)
+    returns, return_items = services.list_returns(sale_id)
     return render_template(
         "sales/receipt.html", sale=sale, items=items, payment_methods=PAYMENT_METHODS,
         allocations=services.sale_allocations(sale_id),
+        returned=services.returned_qty_by_item(sale_id),
+        returns=returns, return_items=return_items, reasons=services.RETURN_REASONS,
     )
 
 
@@ -227,7 +230,24 @@ def history():
         "sales/history.html",
         sales=sales, count=count, total_sum=total_sum, filters=filters, page=page,
         pages=max(math.ceil(count / page_size), 1), payment_methods=PAYMENT_METHODS, error=error,
+        return_totals=services.return_totals([s["id"] for s in sales]),
     )
+
+
+@bp.route("/sprzedaze/<int:sale_id>/zwrot", methods=["POST"])
+@manager_required
+def create_return(sale_id):
+    quantities = {}
+    for key, value in request.form.items():
+        if key.startswith("qty_") and key[4:].isdigit():
+            quantities[int(key[4:])] = services._parse_int(value) or 0
+    try:
+        return_id = services.create_return(sale_id, quantities, request.form.get("reason", ""), g.user["id"])
+    except services.SaleError as e:
+        flash(" ".join(e.errors), "error")
+        return redirect(url_for("sales.receipt", sale_id=sale_id))
+    flash(f"Zapisano zwrot nr {return_id}.", "success")
+    return redirect(url_for("sales.receipt", sale_id=sale_id))
 
 
 @bp.route("/sprzedaze/eksport.csv")

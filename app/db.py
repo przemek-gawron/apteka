@@ -3,9 +3,11 @@ import sqlite3
 import click
 from flask import current_app, g
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA = """
+DROP TABLE IF EXISTS return_items;
+DROP TABLE IF EXISTS returns;
 DROP TABLE IF EXISTS sale_allocations;
 DROP TABLE IF EXISTS sale_items;
 DROP TABLE IF EXISTS sales;
@@ -73,6 +75,25 @@ CREATE TABLE sale_items (
     quantity INTEGER NOT NULL,
     unit_price_grosze INTEGER NOT NULL,
     prescription_code TEXT
+);
+
+CREATE TABLE returns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sale_id INTEGER NOT NULL REFERENCES sales (id),
+    created_at TEXT NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users (id),
+    reason TEXT NOT NULL,
+    total_grosze INTEGER NOT NULL
+);
+
+CREATE TABLE return_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    return_id INTEGER NOT NULL REFERENCES returns (id) ON DELETE CASCADE,
+    sale_item_id INTEGER NOT NULL REFERENCES sale_items (id),
+    drug_id INTEGER REFERENCES drugs (id) ON DELETE SET NULL,
+    drug_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    unit_price_grosze INTEGER NOT NULL
 );
 
 CREATE TABLE sale_allocations (

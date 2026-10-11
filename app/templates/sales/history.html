@@ -40,7 +40,7 @@
   {% if sales %}
   <div class="table-wrap">
   <table class="table" data-testid="sales-table">
-    <thead><tr><th>Nr</th><th>Data</th><th>Sprzedawca</th><th>Płatność</th><th class="num">Sztuk</th><th class="num">Kwota</th></tr></thead>
+    <thead><tr><th>Nr</th><th>Data</th><th>Sprzedawca</th><th>Płatność</th><th class="num">Sztuk</th><th class="num">Kwota</th><th class="num">Zwrot</th></tr></thead>
     <tbody>
       {% for s in sales %}
       <tr data-testid="sale-row">
@@ -50,6 +50,7 @@
         <td data-testid="sale-payment">{{ payment_methods[s.payment_method] }}</td>
         <td class="num">{{ s.items_count }}</td>
         <td class="num" data-testid="sale-total">{{ s.total_grosze|pln }}</td>
+        <td class="num" data-testid="sale-return">{% if return_totals.get(s.id) %}{{ return_totals[s.id]|pln }}{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>

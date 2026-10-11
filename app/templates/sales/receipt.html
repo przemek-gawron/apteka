@@ -42,4 +42,63 @@
     </tfoot>
   </table>
 </section>
+
+{% if returns %}
+<section class="card">
+  <h2>Zwroty</h2>
+  <ul class="interaction-list" data-testid="return-list">
+    {% for r in returns %}
+    <li>
+      <strong>Zwrot #{{ r.id }}</strong> · {{ r.total_grosze|pln }} · {{ reasons[r.reason] }}
+      <div class="small muted">{{ r.created_at }} · {{ r.cashier }}</div>
+      <div class="small">{% for item in return_items[r.id] %}{{ item.drug_name }} × {{ item.quantity }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if g.user.role == 'kierownik' %}
+<section class="card" data-testid="return-panel">
+  <h2>Zwrot</h2>
+  {% set remaining = namespace(any=false) %}
+  <form method="post" action="{{ url_for('sales.create_return', sale_id=sale.id) }}" data-testid="return-form">
+    <table class="table">
+      <thead><tr><th>Lek</th><th class="num">Sprzedano</th><th class="num">Zwrócono</th><th class="num">Ilość zwrotu</th></tr></thead>
+      <tbody>
+        {% for i in items %}
+        {% set left = i.quantity - returned.get(i.id, 0) %}
+        <tr>
+          <td>{{ i.drug_name }}</td>
+          <td class="num">{{ i.quantity }}</td>
+          <td class="num">{{ returned.get(i.id, 0) }}</td>
+          <td class="num">
+            {% if left > 0 %}
+            {% set remaining.any = true %}
+            <input name="qty_{{ i.id }}" value="0" inputmode="numeric" aria-label="Ilość zwrotu {{ i.drug_name }}" data-testid="return-qty">
+            {% else %}
+            <span class="muted">całość</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if remaining.any %}
+    <div class="field">
+      <label for="return-reason">Powód zwrotu</label>
+      <select id="return-reason" name="reason" data-testid="return-reason">
+        <option value="">— wybierz —</option>
+        {% for key, label in reasons.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-danger" data-testid="return-submit">Zwróć</button>
+    {% else %}
+    <p class="muted">Ta sprzedaż została w całości zwrócona.</p>
+    {% endif %}
+  </form>
+</section>
+{% endif %}
 {% endblock %}
