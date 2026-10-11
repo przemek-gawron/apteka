@@ -208,6 +208,16 @@ input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -
 
 /* ---------- POS ---------- */
 .pos-grid { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 20px; align-items: start; }
+.suggest-field { position: relative; }
+.suggestions {
+  position: absolute; z-index: 5; top: calc(100% - 8px); left: 0; right: 0; margin: 0; padding: 4px;
+  list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: var(--shadow); max-height: 240px; overflow: auto;
+}
+.suggestions li { padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.suggestions li.active, .suggestions li:hover { background: var(--primary-soft); }
+.suggestion-empty { color: var(--muted); cursor: default; }
+.suggestions li.suggestion-empty:hover { background: transparent; }
 .checkout { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
 .receipt { max-width: 620px; }
 .receipt-head { text-align: center; margin-bottom: 14px; }
