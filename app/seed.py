@@ -113,6 +113,8 @@ def seed(conn):
         )
 
     _seed_batches(conn, today)
+    conn.execute("UPDATE drugs SET daily_limit = 2 WHERE name = 'Sudafed'")
+    conn.execute("UPDATE drugs SET daily_limit = 4 WHERE name = 'Gripex Max'")
 
     conn.executemany(
         "INSERT INTO interactions (substance_a, substance_b, severity, description) VALUES (?, ?, ?, ?)",
@@ -138,10 +140,16 @@ def seed(conn):
             total = 0
             n_items = rng.choices([1, 2, 3], weights=[60, 30, 10])[0]
             for drug_id, d in rng.choices(drugs, weights=weights, k=n_items):
+                # Dziś nie dosiewamy pseudoefedryny, żeby limit dzienny dało się jeszcze sprzedać.
+                if day_offset == 0 and "pseudoefedryna" in d[1]:
+                    continue
                 qty = rng.choices([1, 2, 3], weights=[75, 20, 5])[0]
                 code = f"{rng.randint(0, 9999):04d}" if d[8] else None
                 item_rows.append((sale_id, drug_id, d[0], d[4], qty, d[5], code))
                 total += qty * d[5]
+            if total == 0:
+                sale_id -= 1
+                continue
             method = rng.choices(["karta", "gotowka"], weights=[65, 35])[0]
             cash = None
             if method == "gotowka":

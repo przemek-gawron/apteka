@@ -291,12 +291,38 @@ def check_item(drug, quantity, prescription_code, already_in_cart=0):
     available = drug["stock"] - already_in_cart
     if quantity > available:
         return f"{drug['name']}: niewystarczający stan magazynowy (dostępne: {max(available, 0)})."
+    if drug["daily_limit"]:
+        left = drug["daily_limit"] - sold_today(drug["id"]) - already_in_cart
+        if quantity > left:
+            return (f"{drug['name']}: przekroczony limit dzienny "
+                    f"(dostępne dziś: {max(left, 0)} z {drug['daily_limit']}).")
     if drug["rx"]:
         if not prescription_code:
             return f"{drug['name']}: lek na receptę — podaj kod recepty."
         if not re.fullmatch(r"\d{4}", prescription_code):
             return "Kod recepty musi składać się z 4 cyfr."
     return None
+
+
+def sold_today(drug_id):
+    """Sztuki sprzedane dziś, pomniejszone o zwroty z tego dnia."""
+    db = get_db()
+    sold = db.execute(
+        """SELECT COALESCE(SUM(i.quantity), 0)
+           FROM sale_items i JOIN sales s ON s.id = i.sale_id
+           WHERE i.drug_id = ? AND date(s.created_at) = ?""",
+        (drug_id, today().isoformat()),
+    ).fetchone()[0]
+    if db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'return_items'"
+    ).fetchone():
+        sold -= db.execute(
+            """SELECT COALESCE(SUM(ri.quantity), 0)
+               FROM return_items ri JOIN returns r ON r.id = ri.return_id
+               WHERE ri.drug_id = ? AND date(r.created_at) = ?""",
+            (drug_id, today().isoformat()),
+        ).fetchone()[0]
+    return sold
 
 
 def find_interactions(substances_a, substances_b):

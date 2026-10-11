@@ -3,7 +3,7 @@ import sqlite3
 import click
 from flask import current_app, g
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 DROP TABLE IF EXISTS sale_allocations;

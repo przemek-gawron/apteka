@@ -22,11 +22,13 @@
         <select id="drug_id" name="drug_id">
           <option value="">— wybierz lek —</option>
           {% for d in drugs %}
-          <option value="{{ d.id }}" data-rx="{{ d.rx }}" {{ 'selected' if form.get('drug_id') == d.id|string }}>
+          <option value="{{ d.id }}" data-rx="{{ d.rx }}" data-limit="{{ d.daily_limit or '' }}"
+                  {{ 'selected' if form.get('drug_id') == d.id|string }}>
             {{ d.name }} {{ d.strength }}{{ ' (Rx)' if d.rx }} — {{ d.price_grosze|pln }} · stan: {{ d.stock }}
           </option>
           {% endfor %}
         </select>
+        <div class="hint" id="limit-hint" data-testid="daily-limit-hint" hidden></div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -151,9 +153,15 @@
   (function () {
     const select = document.getElementById("drug_id");
     const rxField = document.getElementById("rx-field");
+    const limitHint = document.getElementById("limit-hint");
     const syncRx = () => {
       const opt = select.selectedOptions[0];
       rxField.hidden = !(opt && opt.dataset.rx === "1");
+      const limit = opt && opt.dataset.limit;
+      if (limitHint) {
+        limitHint.hidden = !limit;
+        limitHint.textContent = limit ? `Limit dzienny: ${limit} szt. (łącznie ze sprzedażą z dziś).` : "";
+      }
     };
     select.addEventListener("change", syncRx);
     syncRx();
